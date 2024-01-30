@@ -90,7 +90,8 @@ class Command(BaseCommand):
                 continue
             count += 1
 
-            ### create bed and index for genbank
+            ### create bed and index for genbanky
+
             test_file = reference.get_reference_bed(TypePath.MEDIA_ROOT)
             if not os.path.exists(
                 reference.get_reference_gbk(TypePath.MEDIA_ROOT)
