@@ -70,9 +70,7 @@ class Pipeline_Graph_Metagenomics(PipelineTreeBase):
                 CS.PIPELINE_NAME_host_depletion,
                 CS.PIPELINE_NAME_viral_enrichment,
             ],
-
             CS.PIPELINE_NAME_contig_classification: [CS.PIPELINE_NAME_assembly],
-
             CS.PIPELINE_NAME_read_classification: [
                 self.ROOT,
                 CS.PIPELINE_NAME_assembly,
@@ -81,7 +79,6 @@ class Pipeline_Graph_Metagenomics(PipelineTreeBase):
                 CS.PIPELINE_NAME_viral_enrichment,
                 CS.PIPELINE_NAME_host_depletion,
             ],
-
             CS.PIPELINE_NAME_remap_filtering: [
                 CS.PIPELINE_NAME_contig_classification,
                 CS.PIPELINE_NAME_read_classification,

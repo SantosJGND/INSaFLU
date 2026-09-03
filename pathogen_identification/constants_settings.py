@@ -58,7 +58,6 @@ class ConstantsSettings:
     ################################### Pipeline steps
 
     PIPELINE_STEPS_DB_DEPENDENT = [
-        CS.PIPELINE_NAME_extra_qc,
         CS.PIPELINE_NAME_viral_enrichment,
         CS.PIPELINE_NAME_host_depletion,
         CS.PIPELINE_NAME_read_classification,

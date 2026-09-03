@@ -642,6 +642,7 @@ class RunMain(models.Model):
     STATUS_RUNNING = 3
     STATUS_FINISHED = 4
     STATUS_KILLED = 5
+    STATUS_QUEUED = 6
 
     run_type = models.IntegerField(default=RUN_TYPE_PIPELINE)
     status = models.IntegerField(default=STATUS_DEFAULT)

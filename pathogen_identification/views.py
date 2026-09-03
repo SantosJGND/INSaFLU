@@ -14,7 +14,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.core.files.temp import NamedTemporaryFile
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Q, Count
 from django.http import (FileResponse, Http404, HttpResponse,
                          HttpResponseNotFound, HttpResponseRedirect,
                          JsonResponse)
@@ -442,6 +442,8 @@ class PathId_ProjectsView(BaseBreadcrumbMixin, LoginRequiredMixin, ListView):
                 Q(name__icontains=self.request.GET.get(tag_search))
                 | Q(project_samples__name__icontains=query_string)
             ).distinct()
+        
+
 
         table = ProjectTable(query_set)
 
@@ -945,6 +947,26 @@ class MainPage(BaseBreadcrumbMixin, LoginRequiredMixin, generic.CreateView):
         ):
             query_string = process_query_string(self.request.GET.get(tag_search))
             query_set = query_set.filter(Q(name__icontains=query_string)).distinct()
+
+        # Precompute per-sample running/queued/finished run counts to avoid N+1 queries
+        run_counts_qs = (
+            RunMain.objects.filter(sample__in=query_set)
+            .values("sample")
+            .annotate(
+                running=Count("pk", filter=Q(status=RunMain.STATUS_RUNNING)),
+                queued=Count("pk", filter=Q(status=RunMain.STATUS_QUEUED)),
+                finished=Count("pk", filter=Q(status=RunMain.STATUS_FINISHED)),
+            )
+        )
+        
+        run_map = {item["sample"]: item for item in run_counts_qs}
+        # Attach precomputed counts onto each sample object used by the table renderer
+        for s in query_set:
+            counts = run_map.get(s.pk, {})
+            s._proc_running = counts.get("running", 0)
+            s._proc_queued = counts.get("queued", 0)
+            s._proc_finished = counts.get("finished", 0)
+
 
         samples = SampleTableOne(query_set)
 
