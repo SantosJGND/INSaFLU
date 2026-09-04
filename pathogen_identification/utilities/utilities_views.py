@@ -1170,7 +1170,7 @@ def set_control_reports(project_pk: int):
         )
 
         control_compound_raw_references = RawReferenceCompoundModel.objects.filter(
-            run__sample__in=control_samples
+            sample__in=control_samples
         )
 
         control_unmapped = control_compound_raw_references.filter(
@@ -1218,7 +1218,8 @@ def set_control_reports(project_pk: int):
             report.save()
 
     except Exception as e:
-        print(e)
+        import traceback
+        traceback.print_exc()   
         pass
 
 

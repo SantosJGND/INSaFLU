@@ -3087,6 +3087,10 @@ class Sample_ReportCombined(LoginRequiredMixin, generic.CreateView):
                     taxon_report['taxon_heatmap_json'] = json.dumps(taxon_report['taxon_heatmap_json'])
 
         report_taxa = list(report_taxa.values())
+        for taxon_report in report_taxa:
+            taxon_report['any_in_control'] = any(
+                report.control_flag == FinalReport.CONTROL_FLAG_PRESENT for report_list in taxon_report['report_groups'].values() for report in report_list
+            )
 
         if any(species is None for species in reported_taxa.values()):
             report_taxa.append({
@@ -3096,7 +3100,8 @@ class Sample_ReportCombined(LoginRequiredMixin, generic.CreateView):
                 },
                 "total_private_counts": sum(
                     rg.private_counts_safe for rg in report_groups if rg.main_species is None
-                )
+                ),
+                "any_in_control": False
             })
         
         report_taxa = sorted(report_taxa, key=lambda x: len(x["report_groups"]), reverse=True)
