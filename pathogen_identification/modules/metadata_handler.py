@@ -274,12 +274,12 @@ class RunMetadataHandler:
 
         if self.rclass.empty is False:
             taxid_cutoff = self._predict_cutoff(self.rclass, project_pk)
-            taxid_cutoff = min(taxid_cutoff, taxid_limit)
-            self.rclass = self.rclass.sort_values(by="counts", ascending=False).head(taxid_cutoff)
+            taxid_limit = min(taxid_cutoff, taxid_limit)
+            self.rclass = self.rclass.sort_values(by="counts", ascending=False)
 
         if self.merged_targets.empty:
             self.merge_reports_clean(
-                taxid_limit=1000,
+                taxid_limit=taxid_limit,
             )
 
         #######
@@ -833,6 +833,17 @@ class RunMetadataHandler:
         if any(x not in merged_table.columns for x in ["taxid", "counts"]):
             raise ValueError("Merged table must contain 'taxid' and 'counts' columns.")
 
+        from pathogen_identification.utilities.ml_api_client import MLAPIClient
+        from pathogen_identification.utilities.televir_parameters import TelevirParameters
+        from constants.software_names import SoftwareNames
+
+        model_type = TelevirParameters.get_recall_model(project_pk=project_pk)
+        remap_params = TelevirParameters.get_remap_software(project_pk=project_pk)
+
+        if model_type == SoftwareNames.SOFTWARE_REMAP_PARAMS_recall_default_model:
+            
+            return remap_params.max_taxids
+
         rows = [
             {
                 "taxid": int(row.taxid), 
@@ -845,26 +856,7 @@ class RunMetadataHandler:
         ]
         rows = sorted(rows, key=lambda x: x["total_uniq_reads"], reverse=True)
 
-        self.logger.info(f"Predicting cutoff for {len(rows)} taxids using project {project_pk} model.")
-        self.logger.info(f"Rows:")
-        for row in rows:    
-            self.logger.info(row)
-        
-
-        from pathogen_identification.utilities.ml_api_client import MLAPIClient
-        from pathogen_identification.utilities.televir_parameters import TelevirParameters
-        from constants.software_names import SoftwareNames
-
-        model_type = TelevirParameters.get_recall_model(project_pk=project_pk)
-        remap_params = TelevirParameters.get_remap_software(project_pk=project_pk)
-
-        if model_type == SoftwareNames.SOFTWARE_REMAP_PARAMS_recall_default_model:
-            
-            return remap_params.max_taxids
-
         ml_api_client = MLAPIClient()
-
-        self.logger.info(f"Using model type: {model_type} for cutoff prediction.")
 
         try:
             cutoff_dict = ml_api_client.predict_recall_cutoff(rows, model= model_type)
