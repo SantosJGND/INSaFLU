@@ -3093,7 +3093,7 @@ class Sample_ReportCombined(LoginRequiredMixin, generic.CreateView):
             )
 
         if any(species is None for species in reported_taxa.values()):
-            report_taxa.append({
+            unassigned = {
                 "species": {"name": "Unassigned", "taxid": None},
                 "report_groups": {
                     rg: sorted_reports[rg] for rg in report_groups if rg.main_species is None
@@ -3102,7 +3102,13 @@ class Sample_ReportCombined(LoginRequiredMixin, generic.CreateView):
                     rg.private_counts_safe for rg in report_groups if rg.main_species is None
                 ),
                 "any_in_control": False
-            })
+            }
+            unassigned["any_in_control"] = all(
+                report.control_flag == FinalReport.CONTROL_FLAG_PRESENT for report_list in unassigned['report_groups'].values() for report in report_list
+            )
+            report_taxa.append(unassigned)
+        
+        
         
         report_taxa = sorted(report_taxa, key=lambda x: len(x["report_groups"]), reverse=True)
         report_taxa = sorted(report_taxa, key=lambda x: x["total_private_counts"], reverse=True)
