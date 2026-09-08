@@ -1798,13 +1798,6 @@ class Parameter_DB_Utility:
                 software__type_of_use__in=Software.TELEVIR_PROJECT_TYPES,
             )
 
-        #parameters_available = Parameter.objects.filter(
-        #    software__in=software_available,
-        #).distinct()
-
-        #software_table = pd.DataFrame(software_available.values())
-        #parameters_table = pd.DataFrame(parameters_available.values())
-
         return parameters_available
     
 

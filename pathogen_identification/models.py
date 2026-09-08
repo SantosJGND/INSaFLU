@@ -1606,12 +1606,12 @@ class TelefluMapping(models.Model):
 
             if reports.exists():
                 report = reports[0]
-                try:
-                    reference_map = ReferenceMap_Main.objects.get(
-                        run=report.run, accid=report.accid
-                    )
-                except ReferenceMap_Main.DoesNotExist:
-                    reference_map = None
+                #try:
+                #    reference_map = ReferenceMap_Main.objects.get(
+                #        run=report.run, accid=report.accid
+                #    )
+                #except ReferenceMap_Main.DoesNotExist:
+                #    reference_map = None
                 sample_summary[sample.name]["coverage"] = round(reports[0].coverage, 3)
                 sample_summary[sample.name]["windows_covered"] = reports[
                     0

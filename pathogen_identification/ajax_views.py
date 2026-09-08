@@ -1970,7 +1970,8 @@ def teleflu_node_info(params_df, leaf: SoftwareTreeNode):
         acronym = "".join(acronym).upper()
         params = params_df[params_df.module == pipeline_step].to_dict("records")
         if params:  # if there are parameters for this module
-            software = params[0].get("software")
+            print(params)
+            software = params[0].get("software_name", "")
             software = software.split("_")[0]
 
             params = params[0].get("value")
@@ -2012,54 +2013,64 @@ def load_teleflu_workflows(request):
         teleflu_project = TeleFluProject.objects.get(pk=teleflu_project_pk)
         mapping_workflows = []
         existing_mapping_pks = []
+        try:
 
-        for mapping in mappings:
-            if mapping.leaf is None:
-                continue
+            for mapping in mappings:
+                print(f"mapping: {mapping.pk}, leaf: {mapping.leaf}, project: {mapping.teleflu_project}")
+                if mapping.leaf is None:
+                    continue
 
-            params_df = utils_manager.get_leaf_parameters(mapping.leaf)
-            node_info = teleflu_node_info(params_df, mapping.leaf)
+                params_df = utils_manager.get_leaf_parameters(mapping.leaf)
+                node_info = teleflu_node_info(params_df, mapping.leaf)
 
-            samples_mapped = mapping.mapped_samples
+                samples_mapped = mapping.mapped_samples
 
-            samples_stacked = mapping.stacked_samples_televir
-            node_info["running_or_queued"] = mapping.queued_or_running_mappings_exist
-            node_info["pk"] = mapping.pk
-            node_info["samples_stacked"] = samples_stacked.count()
-            node_info["samples_to_stack"] = samples_mapped.exclude(
-                pk__in=samples_stacked.values_list("pk", flat=True)
-            ).exists()
+                samples_stacked = mapping.stacked_samples_televir
+                node_info["running_or_queued"] = mapping.queued_or_running_mappings_exist
+                node_info["pk"] = mapping.pk
+                node_info["samples_stacked"] = samples_stacked.count()
+                node_info["samples_to_stack"] = samples_mapped.exclude(
+                    pk__in=samples_stacked.values_list("pk", flat=True)
+                ).exists()
 
-            sample_summary, mapped_samples, mapped_success = mapping.sample_summary
+                sample_summary, mapped_samples, mapped_success = mapping.sample_summary
 
-            mapped_fail = mapped_samples - mapped_success
+                mapped_fail = mapped_samples - mapped_success
 
-            node_info["samples_mapped"] = samples_mapped.count()
-            node_info["mapped_success"] = mapped_success
-            node_info["mapped_fail"] = mapped_fail
-            node_info["left_to_map"] = (
-                teleflu_project.nsamples - mapped_success - mapped_fail
-            ) > 0
+                node_info["samples_mapped"] = samples_mapped.count()
+                node_info["mapped_success"] = mapped_success
+                node_info["mapped_fail"] = mapped_fail
+                node_info["left_to_map"] = (
+                    teleflu_project.nsamples - mapped_success - mapped_fail
+                ) > 0
 
-            node_info["sample_summary"] = sample_summary
-            existing_mapping_pks.append(mapping.leaf.pk)
-            node_info["stacked_html_exists"] = os.path.exists(
-                mapping.mapping_igv_report
-            )
-            node_info["stacked_html"] = mapping.mapping_igv_report.replace(
-                "/insaflu_web/INSaFLU", ""
-            )
+                node_info["sample_summary"] = sample_summary
+                existing_mapping_pks.append(mapping.leaf.pk)
+                node_info["stacked_html_exists"] = os.path.exists(
+                    mapping.mapping_igv_report
+                )
+                node_info["stacked_html"] = mapping.mapping_igv_report.replace(
+                    "/insaflu_web/INSaFLU", ""
+                )
 
-            node_info["stacked_variants_vcf"] = mapping.variants_vcf_media_path
+                node_info["stacked_variants_vcf"] = mapping.variants_vcf_media_path
 
-            mapping_workflows.append(node_info)
+                mapping_workflows.append(node_info)
 
-        data["mapping_workflows"] = mapping_workflows
-        data["is_ok"] = True
-        data["teleflu_project_pk"] = teleflu_project_pk
-        data["project_nsamples"] = teleflu_project.nsamples
+            data["mapping_workflows"] = mapping_workflows
+            data["is_ok"] = True
+            data["teleflu_project_pk"] = teleflu_project_pk
+            data["project_nsamples"] = teleflu_project.nsamples
 
-        return JsonResponse(data)
+            print(data)
+
+            return JsonResponse(data)
+        except Exception as e:
+            print(e)
+            import traceback
+            traceback.print_exc()
+            data["is_ok"] = False 
+
 
     return JsonResponse(data)
 
