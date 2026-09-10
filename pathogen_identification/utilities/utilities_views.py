@@ -1434,7 +1434,6 @@ class ReportSorter:
         return self.analysis_empty == False
 
     def build_tree(self):
-        print(self.reports_available)
         if self.reports_available:
             self.overlap_manager.build_tree()
 
@@ -1783,7 +1782,6 @@ class ReportSorter:
         clade_heatmap_json = self.clade_heatmap_json(
             to_keep=[report_group.name for report_group in sorted_reports]
         )
-        print(sorted_reports)
         #########
         private_reads_available = False
         for group in sorted_reports:

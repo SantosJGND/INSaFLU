@@ -821,7 +821,6 @@ def submit_televir_project_sample(request):
 
         except Exception as e:
             print(e)
-            print("this gave an error")
             data["is_deployed"] = False
         print(data)
         data["is_ok"] = True
@@ -1969,7 +1968,6 @@ def teleflu_node_info(params_df, leaf: SoftwareTreeNode):
         acronym = "".join(acronym).upper()
         params = params_df[params_df.module == pipeline_step].to_dict("records")
         if params:  # if there are parameters for this module
-            print(params)
             software = params[0].get("software_name", "")
             software = software.split("_")[0]
 
@@ -2015,7 +2013,6 @@ def load_teleflu_workflows(request):
         try:
 
             for mapping in mappings:
-                print(f"mapping: {mapping.pk}, leaf: {mapping.leaf}, project: {mapping.teleflu_project}")
                 if mapping.leaf is None:
                     continue
 
@@ -2060,8 +2057,6 @@ def load_teleflu_workflows(request):
             data["is_ok"] = True
             data["teleflu_project_pk"] = teleflu_project_pk
             data["project_nsamples"] = teleflu_project.nsamples
-
-            print(data)
 
             return JsonResponse(data)
         except Exception as e:
