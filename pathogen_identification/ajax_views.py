@@ -59,6 +59,38 @@ def simplify_name(name: str):
     )
 
 
+def get_project_checked_boxes(request, project_pk):
+        
+    try:
+
+        check_box_all_checked = request.POST.get("check_box_all", False)
+        check_boxes = {
+            key: value
+            for key, value in request.session.items()
+            if key.startswith(Constants.CHECK_BOX)
+            and key != Constants.CHECK_BOX_ALL
+            and value is True
+            }
+
+        ref_id = int(request.POST["teleflu_id"])
+
+        if check_box_all_checked is True:
+            sample_ids = PIProject_Sample.objects.filter(
+                project__pk = project_pk
+            ).values_list("pk", flat=True)
+        else:
+            sample_ids = []
+            for key, value in check_boxes.items():
+                if value:
+                    sample_id = key.split("_")[-1]
+                    if sample_id.isdigit():
+                        sample_ids.append(int(sample_id))
+    except Exception as e:
+        print("Error in get_project_checked_boxes:", e)
+        sample_ids = []
+
+    return sample_ids
+
 @login_required
 @require_POST
 def submit_sample_metagenomics_televir(request):
@@ -470,13 +502,7 @@ def submit_samples_mapping_panels(request):
 
         project_samples = PIProject_Sample.objects.filter(project=project)
 
-        sample_ids = request.POST.getlist("sample_ids[]")
-        check_box_all_checked = request.POST.get("check_box_all_checked", False)
-        if check_box_all_checked:
-            sample_ids = []
-        else:
-            sample_ids = [int(sample_id) for sample_id in sample_ids]
-
+        sample_ids = get_project_checked_boxes(request, project_id)
         if len(sample_ids) > 0:
             project_samples = project_samples.filter(pk__in=sample_ids)
 
@@ -568,8 +594,9 @@ def submit_project_samples_mapping_televir(request):
 
         project_samples = PIProject_Sample.objects.filter(project=project)
 
-        sample_ids = request.POST.getlist("sample_ids[]")
-        sample_ids = [int(sample_id) for sample_id in sample_ids]
+        sample_ids = get_project_checked_boxes(
+            request, project_id
+        )
 
         if len(sample_ids) > 0:
             project_samples = project_samples.filter(pk__in=sample_ids)
@@ -637,18 +664,12 @@ def deploy_ProjectPI(request):
         user_id = int(request.POST["user_id"])
         user = User.objects.get(id=int(user_id))
 
-        samples = PIProject_Sample.objects.filter(
-            project=project, is_deleted_in_file_system=False
+        sample_ids = get_project_checked_boxes(
+            request, project_id
         )
-
-        sample_ids = request.POST.getlist("sample_ids[]")
-        sample_ids = [int(sample_id) for sample_id in sample_ids]
-        check_box_all_checked = request.POST.get("check_box_all_checked", False)
-
-        if check_box_all_checked:
-            samples = samples.filter(is_deleted_in_file_system=False)
-        elif len(sample_ids) > 0:
-            samples = samples.filter(pk__in=sample_ids)
+        samples = PIProject_Sample.objects.filter(
+            project=project, is_deleted_in_file_system=False, pk__in=sample_ids
+        )
 
         software_utils = SoftwareTreeUtils(user, project)
 
@@ -704,14 +725,9 @@ def deploy_ProjectPI_combined_runs(request):
             project=project, is_deleted_in_file_system=False
         )
 
-        sample_ids = request.POST.getlist("sample_ids[]")
-        check_box_all_checked = request.POST.get("check_box_all_checked", False)
-        if check_box_all_checked:
-            samples = samples.filter(is_deleted_in_file_system=False)
-        elif len(sample_ids) > 0:
-            samples = samples.filter(
-                pk__in=[int(sample_id) for sample_id in sample_ids]
-            )
+        sample_ids = get_project_checked_boxes(
+            request, project_id)
+        samples = samples.filter(pk__in=sample_ids)
 
         try:
 
@@ -1143,18 +1159,10 @@ def kill_televir_project_all_sample(request):
 
         project_id = int(request.POST["project_id"])
         project = Projects.objects.get(id=int(project_id))
-        sample_ids = request.POST.getlist("sample_ids[]")
-        check_box_all_checked = request.POST.get("check_box_all_checked", False)
-
-        if check_box_all_checked:
-            sample_ids = []
-        else:
-            sample_ids = [int(sample_id) for sample_id in sample_ids]
-
-        samples = PIProject_Sample.objects.filter(project__id=int(project_id))
-
-        if len(sample_ids) > 0:
-            samples = samples.filter(pk__in=sample_ids)
+        sample_ids = get_project_checked_boxes(request, project_id)
+        samples = PIProject_Sample.objects.filter(
+            project=project, is_deleted_in_file_system=False, pk__in=sample_ids
+        )
 
         killed = 0
 
@@ -1457,8 +1465,6 @@ def create_teleflu_project(request):
         data = {"is_ok": False, "is_error": False, "exists": False, "is_empty": False}
 
         ref_ids = request.POST.getlist("ref_ids[]")
-        sample_ids = request.POST.getlist("sample_ids[]")
-        check_box_all_checked = request.POST.get("check_box_all_checked", False)
 
         def teleflu_project_name_from_refs(ref_ids):
 
@@ -1484,10 +1490,7 @@ def create_teleflu_project(request):
         first_ref = RawReference.objects.get(pk=int(ref_ids[0]))
 
         project = first_ref.run.project
-        if check_box_all_checked:
-            sample_ids = PIProject_Sample.objects.filter(project=project).values_list(
-                "pk", flat=True
-            )
+        sample_ids = get_project_checked_boxes(request, project.pk)
         date = datetime.now()
 
         try:
@@ -1841,6 +1844,8 @@ def set_teleflu_check_box_values(request):
         return JsonResponse(data)
 
 
+
+
 @login_required
 @require_POST
 def add_teleflu_sample(request):
@@ -1854,16 +1859,10 @@ def add_teleflu_sample(request):
             "not_added": False,
         }
 
-        sample_ids = request.POST.getlist("sample_ids[]")
-        ref_id = int(request.POST["teleflu_id"])
-        check_box_all_checked = request.POST.get("check_box_all_checked", False)
-
         teleflu_project = TeleFluProject.objects.get(pk=ref_id)
-        if check_box_all_checked:
-            sample_ids = PIProject_Sample.objects.filter(
-                project=teleflu_project.televir_project
-            ).values_list("pk", flat=True)
-
+        sample_ids = get_project_checked_boxes(
+            request, teleflu_project.televir_project.pk
+        )
         if len(sample_ids) == 0:
             data["is_empty"] = True
             return JsonResponse(data)

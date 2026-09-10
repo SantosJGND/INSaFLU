@@ -203,9 +203,7 @@ $('#checkBoxAll').on('change', function () {
 $(document).ready(function () {
 
     sessionStorage.removeItem('checkedRows');
-
     var checkedRows = JSON.parse(sessionStorage.getItem('checkedRows')) || [];
-
     checkedRows.forEach(function (sample_id) {
         $('.select_sample-checkbox[sample_id="' + sample_id + '"]').prop('checked', true);
     }
@@ -244,7 +242,6 @@ $("#deploypi_mapping_btn").click(function (e) {
             'id': $(this).attr('id'),
             'user_id': $('#deploypi_btn').attr('user-id'),
             'project_id': $('#teleflu_create-button').attr("ref_index"),
-            'sample_ids': checkedRows_samples,
             'check_box_all': remember.checked,
         },
         data_type: 'json',
@@ -263,6 +260,8 @@ $("#deploypi_mapping_btn").click(function (e) {
     });
 });
 
+
+
 $("#deploypi_added_mapping_btn").click(function (e) {
     var user_id = $('#deploypi_btn').attr('user-id');
     var project_id = $('#deploypi_btn').attr('project-id');
@@ -279,7 +278,6 @@ $("#deploypi_added_mapping_btn").click(function (e) {
             'id': $(this).attr('id'),
             'user_id': user_id,
             'project_id': project_id,
-            'sample_ids': checkedRows_samples,
             'check_box_all': remember.checked,
         },
         data_type: 'json',
@@ -315,7 +313,6 @@ $("#deploypi_panels_btn").click(function (e) {
             'id': $(this).attr('id'),
             'user_id': user_id,
             'project_id': project_id,
-            'sample_ids': checkedRows_samples,
             'check_box_all': remember.checked,
         },
         data_type: 'json',
@@ -352,7 +349,6 @@ $("#deploypi_btn").click(function (e) {
             'id': $(this).attr('id'),
             'user_id': user_id,
             'project_id': project_id,
-            'sample_ids': checkedRows_samples,
             'check_box_all': remember.checked,
         },
         data_type: 'json',

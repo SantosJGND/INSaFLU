@@ -97,7 +97,6 @@ var load_panels_main = function(load_url, user_id, target, load = false, suggest
     $("#id-add-teleflu-sample-button").attr('teleflu-id', teleflu_id);
     
     var checkedRows_samples = JSON.parse(sessionStorage.getItem('checkedRows')) || [];
-    var remember = document.getElementById('checkBoxAll');
 
     // change text
     if (checkedRows_samples.length == 0) {
@@ -135,6 +134,7 @@ var load_panels_main = function(load_url, user_id, target, load = false, suggest
               } else {
                   alert('Samples added.');
                   location.reload();
+                  
               }
           }
       });

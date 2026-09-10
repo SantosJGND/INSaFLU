@@ -1000,7 +1000,7 @@ class MainPage(BaseBreadcrumbMixin, LoginRequiredMixin, generic.CreateView):
         ## END need to clean all the others if are reject in filter
         ### set the check_box
         RequestConfig(
-            self.request, paginate={"per_page": Constants.PAGINATE_NUMBER}
+            self.request, paginate={"per_page": 5}#Constants.PAGINATE_NUMBER}
         ).configure(samples)
 
         project_updated = project.is_up_to_date
@@ -1037,7 +1037,7 @@ class MainPage(BaseBreadcrumbMixin, LoginRequiredMixin, generic.CreateView):
         context["project_name"] = project_name
         context["nav_project"] = True
         context["total_items"] = query_set.count()
-        context["show_paginatior"] = query_set.count() > Constants.PAGINATE_NUMBER
+        context["show_paginatior"] = 5 #query_set.count() > Constants.PAGINATE_NUMBER
         context["show_info_main_page"] = ShowInfoMainPage()
         context["query_set_count"] = query_set.count()
         context["demo"] = True if self.request.user.username == "demo" else False
