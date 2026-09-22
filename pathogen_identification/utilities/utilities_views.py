@@ -901,6 +901,7 @@ class FinalReportWrapper:
                     raise e
 
         self.private_reads = 0
+        self.data_exists = False
         self.control_flag = report.control_flag
         self.control_flag_str = report.control_flag_str
         self.first_in_group = False
@@ -1266,7 +1267,7 @@ class ReportList:
         return self.reports[index]
 
 
-    def set_private_reads(self, report_group: ReportGroup):
+    def fetch_report_data(self, report_group: ReportGroup):
         """
         Set private reads for each report.
         """
@@ -1276,6 +1277,7 @@ class ReportList:
                 report_group = report_group
             )
             report.private_reads = report_data.private_reads
+            report.data_exists = report_data.data_exists
 
         return self
     
@@ -1851,7 +1853,7 @@ class ReportSorter:
                     )
                     report_data.save()
 
-                    for run in report.found_in: # compouns report
+                    for run in report.found_in: # compound report
                         report_data.found_in.add(run)
                         report_aggregate.runs.add(run)
 

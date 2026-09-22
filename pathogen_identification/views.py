@@ -2809,7 +2809,7 @@ class Sample_detail(BaseBreadcrumbMixin, LoginRequiredMixin, generic.CreateView)
         )
 
         sorted_reports = {
-            report_group: ReportList(list(report_group.reports.all())).set_private_reads(report_group).sort_group_by_private_reads()
+            report_group: ReportList(list(report_group.reports.all())).fetch_report_data(report_group).sort_group_by_private_reads()
             for report_group in report_groups
         }
 
@@ -3039,7 +3039,7 @@ class Sample_ReportCombined(LoginRequiredMixin, generic.CreateView):
         clade_heatmap_json = json.dumps(latest_report_aggregate.overlap_heatmap_json) if latest_report_aggregate.overlap_heatmap_path else None
 
         sorted_reports = {
-            report_group: ReportList(list(report_group.reports.all())).set_private_reads(report_group).sort_group_by_private_reads()
+            report_group: ReportList(list(report_group.reports.all())).fetch_report_data(report_group).sort_group_by_private_reads()
             for report_group in report_groups
         }
 
