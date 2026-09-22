@@ -797,7 +797,7 @@
                                                 <img src="{% static value.run_main.static_dir %}/{{ value.refa_dotplot }}"="200"="250" alt="">
                                             </td>
                                             <td colspan="1" align="center" style="position:relative">
-                                                {% if value.has_data %}
+                                                {% if value.data_exists %}
                                                 <div>
                                                     <a style="position:relative"
                                                         href={% url 'scaffold_remap' pk1=project_index pk2=sample_index pk3=value.run_index reference=value.simple_id %}>Sample
