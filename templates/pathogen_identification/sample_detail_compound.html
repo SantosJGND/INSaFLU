@@ -756,7 +756,7 @@
                             
                                             </td>
                                             <td colspan="1" align="center">
-                                                {% if value.has_data %}
+                                                {% if value.data_exists %}
                                                 <div id="cov_div" style="position:relative height=100%">
                                                     <br>
                                                     <form id="download_mapped_r1_{{value.accid}}" action="{% url 'download_refmap_files' %}"
