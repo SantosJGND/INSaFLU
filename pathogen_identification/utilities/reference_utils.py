@@ -65,7 +65,7 @@ class AssemblyStore:
     """
     Class to manage assembly storage and retrieval.
     """
-    def __init__(self, store_path: Path):
+    def __init__(self, store_path: Path, user: Optional[User] = None):
         self.store_path = store_path
         os.makedirs(self.store_path, exist_ok=True)
 
@@ -78,7 +78,7 @@ class AssemblyStore:
         self.logger.addHandler(handler)
         self.logger.propagate = False
 
-        self.ncbi = NCBITools()
+        self.ncbi = NCBITools(user=user)
 
     def register_assembly(self, local_assembly: LocalAssembly, cache = False):
         """

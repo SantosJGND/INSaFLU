@@ -15,6 +15,8 @@ from pathogen_identification.utilities.utilities_general import (merge_classes,
                                                                  simplify_name)
 from pathogen_identification.utilities.utilities_views import RawReferenceUtils
 from constants.constants_taxonomy import TaxonConstants
+from django.contrib.auth.models import User
+from constants.constants import Televir_Metadata_Constants
 
 def determine_taxid_in_file(taxid, df: pd.DataFrame):
     """
@@ -31,7 +33,7 @@ class RunMetadataHandler:
 
     def __init__(
         self,
-        username,
+        owner: User,
         config,
         sift_query: str = "phage",
         prefix: str = "",
@@ -46,6 +48,7 @@ class RunMetadataHandler:
             sift_query: string to filter sift report.
 
         """
+        self.owner  = owner
         self.prefix = prefix
         self.rundir = rundir
         self.config = config
@@ -64,14 +67,11 @@ class RunMetadataHandler:
             self.logger.addHandler(logging.StreamHandler())
 
         self.logger.propagate = False
+        metadata_handler = Televir_Metadata_Constants()
 
         self.entrez_conn = EntrezWrapper(
-            username,
-            bindir=os.path.join(
-                self.config["bin"]["ROOT"],
-                self.config["bin"]["software"]["entrez_direct"],
-                "bin",
-            ),
+            owner,
+            bindir=metadata_handler.get_software_bin_directory("entrez_direct"),
             outdir=self.rundir,
             outfile="entrez_output.tsv",
         )
@@ -108,6 +108,10 @@ class RunMetadataHandler:
             [[0, 0, 0]], columns=["input", "output", "removed"]
         )
         self.get_metadata()
+    
+    @property
+    def username(self):
+        return self.owner.username
 
     def reset(self):
         self.remap_targets: List[Remap_Target] = []
@@ -381,7 +385,8 @@ class RunMetadataHandler:
         from pathogen_identification.utilities.reference_utils import \
             AssemblyStore
 
-        assembly_store = AssemblyStore(ConstantsSettings.local_assembly_store)
+
+        assembly_store = AssemblyStore(ConstantsSettings.local_assembly_store, user = self.entrez_conn.user)
         assemblies = assembly_store.match_taxid_to_assembly(df[df["has_refs"] == False])
         assembly_store.register_assemblies(assemblies, cache = True)
         df = self.check_taxids_not_in_db(df)

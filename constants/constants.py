@@ -145,6 +145,7 @@ class Constants(object):
     ### default user that has the default references to be used in mapping
     DEFAULT_USER = "system"
     DEFAULT_USER_PASS = "default_user_123_$%_2"
+    DEFAULT_USER_EMAIL = config("DEFAULT_USER_EMAIL")  ### it's defined in .env
     ## DEFAULT_USER_EMAIL = "insaflu@insa.min-saude.pt"        ### it's defined in .env
 
     ### user anonymous

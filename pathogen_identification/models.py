@@ -2068,6 +2068,30 @@ class FinalReport(models.Model):
     control_flag = models.IntegerField(default=CONTROL_FLAG_NONE)
 
     @property
+    def ref_dotplot_path(self):
+
+        if self.refa_dotplot is None:
+            return None
+        
+        path = os.path.join(
+            PICS.static_directory,
+            self.refa_dotplot
+        )
+
+        if os.path.isfile(path):
+            return path
+
+        return None
+
+    @property
+    def bam_media_exists(self):
+        if self.bam_path is None:
+            return False
+
+        bam_media_path = self.bam_path.replace(PICS.media_directory, "/media")
+        return os.path.isfile(bam_media_path)
+
+    @property
     def in_control(self):
         return self.control_flag in [self.CONTROL_FLAG_PRESENT]
 

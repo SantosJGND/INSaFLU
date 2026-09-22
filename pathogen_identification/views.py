@@ -1000,7 +1000,7 @@ class MainPage(BaseBreadcrumbMixin, LoginRequiredMixin, generic.CreateView):
         ## END need to clean all the others if are reject in filter
         ### set the check_box
         RequestConfig(
-            self.request, paginate={"per_page": 5}#Constants.PAGINATE_NUMBER}
+            self.request, paginate={"per_page": Constants.PAGINATE_NUMBER}
         ).configure(samples)
 
         project_updated = project.is_up_to_date
@@ -1037,7 +1037,7 @@ class MainPage(BaseBreadcrumbMixin, LoginRequiredMixin, generic.CreateView):
         context["project_name"] = project_name
         context["nav_project"] = True
         context["total_items"] = query_set.count()
-        context["show_paginatior"] = 5 #query_set.count() > Constants.PAGINATE_NUMBER
+        context["show_paginatior"] = query_set.count() > Constants.PAGINATE_NUMBER
         context["show_info_main_page"] = ShowInfoMainPage()
         context["query_set_count"] = query_set.count()
         context["demo"] = True if self.request.user.username == "demo" else False
@@ -3038,8 +3038,6 @@ class Sample_ReportCombined(LoginRequiredMixin, generic.CreateView):
             )
         clade_heatmap_json = json.dumps(latest_report_aggregate.overlap_heatmap_json) if latest_report_aggregate.overlap_heatmap_path else None
 
-
-
         sorted_reports = {
             report_group: ReportList(list(report_group.reports.all())).set_private_reads(report_group).sort_group_by_private_reads()
             for report_group in report_groups
@@ -3064,7 +3062,6 @@ class Sample_ReportCombined(LoginRequiredMixin, generic.CreateView):
         }
 
         if latest_report_aggregate.overlap_heatmap_path is not None:
-
             group_map = {}
 
             for taxon_report in report_taxa.values():
@@ -3119,7 +3116,7 @@ class Sample_ReportCombined(LoginRequiredMixin, generic.CreateView):
 
         #### graph
         graph_progress = TreeProgressGraph(sample)
-        # graph_progress.generate_graph()
+        # 
         graph_json, graph_id = graph_progress.get_graph_data()
 
         ####

@@ -72,8 +72,6 @@ def get_project_checked_boxes(request, project_pk):
             and value is True
             }
 
-        ref_id = int(request.POST["teleflu_id"])
-
         if check_box_all_checked is True:
             sample_ids = PIProject_Sample.objects.filter(
                 project__pk = project_pk
@@ -663,13 +661,17 @@ def deploy_ProjectPI(request):
 
         user_id = int(request.POST["user_id"])
         user = User.objects.get(id=int(user_id))
-
         sample_ids = get_project_checked_boxes(
             request, project_id
         )
-        samples = PIProject_Sample.objects.filter(
-            project=project, is_deleted_in_file_system=False, pk__in=sample_ids
-        )
+        if len(sample_ids) == 0:
+            samples = PIProject_Sample.objects.filter(
+                project=project, is_deleted_in_file_system=False
+            )
+        else:
+            samples = PIProject_Sample.objects.filter(
+                project=project, is_deleted_in_file_system=False, pk__in=sample_ids
+            )
 
         software_utils = SoftwareTreeUtils(user, project)
 
@@ -727,7 +729,13 @@ def deploy_ProjectPI_combined_runs(request):
 
         sample_ids = get_project_checked_boxes(
             request, project_id)
-        samples = samples.filter(pk__in=sample_ids)
+        
+        if len(sample_ids) > 0:
+            samples = samples.filter(pk__in=sample_ids)
+        else:
+            samples = PIProject_Sample.objects.filter(
+                project=project, is_deleted_in_file_system=False
+            )
 
         try:
 
@@ -1159,9 +1167,14 @@ def kill_televir_project_all_sample(request):
         project_id = int(request.POST["project_id"])
         project = Projects.objects.get(id=int(project_id))
         sample_ids = get_project_checked_boxes(request, project_id)
-        samples = PIProject_Sample.objects.filter(
-            project=project, is_deleted_in_file_system=False, pk__in=sample_ids
-        )
+        if len(sample_ids) == 0:
+            samples= PIProject_Sample.objects.filter(
+                project=project, is_deleted_in_file_system=False
+            )
+        else:
+            samples = PIProject_Sample.objects.filter(
+                project=project, is_deleted_in_file_system=False, pk__in=sample_ids
+            )
 
         killed = 0
 
