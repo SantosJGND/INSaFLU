@@ -901,6 +901,7 @@ class FinalReportWrapper:
                     raise e
 
         self.private_reads = 0
+        self.run_index = report.run.pk if report.run else None
         self.data_exists = False
         self.control_flag = report.control_flag
         self.control_flag_str = report.control_flag_str
