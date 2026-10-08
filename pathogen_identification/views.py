@@ -84,7 +84,7 @@ from pathogen_identification.utilities.utilities_general import (
 from pathogen_identification.utilities.utilities_pipeline import (
     Parameter_DB_Utility, SoftwareTreeUtils)
 from pathogen_identification.utilities.utilities_views import (
-    EmptyRemapMain, RawReferenceUtils, ReportAggregateEmpty, ReportList,
+    EmptyRemapMain, RawReferenceUtils, ReportAggregateEmpty, ReportList, SampleReferenceManager,
     RunMainWrapper, SampleReadsRetrieve, recover_assembly_contigs)
 from settings.constants_settings import ConstantsSettings as CS
 from utils.process_SGE import ProcessSched
@@ -3034,88 +3034,11 @@ class Sample_ReportCombined(LoginRequiredMixin, generic.CreateView):
 
         if latest_report_aggregate is None:
             latest_report_aggregate = ReportAggregateEmpty()    
-            report_groups = ReportGroup.objects.none()
-        else:
-            report_groups = ReportGroup.objects.filter(
-                aggregator=latest_report_aggregate
-            )
-        clade_heatmap_json = json.dumps(latest_report_aggregate.overlap_heatmap_json) if latest_report_aggregate.overlap_heatmap_path else None
 
-        sorted_reports = {
-            report_group: ReportList(list(report_group.reports.all())).fetch_report_data(report_group).sort_group_by_private_reads()
-            for report_group in report_groups
-        }
+        clade_heatmap_json = latest_report_aggregate.clade_heatmap_json
+        report_taxa = SampleReferenceManager.aggregate_report_taxa(sample)
 
-        reported_taxa = {
-            report_group: report_group.main_species for report_group in report_groups
-        }
-
-        # group reports by main species and sort by private reads availability
-        report_taxa = {
-            species: {
-                "species": species,
-                "report_groups": {
-                    rg: sorted_reports[rg] for rg in report_groups if rg.main_species == species
-                },
-                "total_private_counts": sum(
-                    rg.private_counts_safe for rg in report_groups if rg.main_species == species
-                )
-            }
-            for species in set(reported_taxa.values()) if species is not None
-        }
-
-        if latest_report_aggregate.overlap_heatmap_path is not None:
-            group_map = {}
-
-            for taxon_report in report_taxa.values():
-                for gp in taxon_report["report_groups"].keys():
-                    group_map[gp.name] = taxon_report['species']
-                taxon_report['taxon_heatmap_json'] = []
-            
-            if latest_report_aggregate.overlap_heatmap_json is not None:
-                for cell in latest_report_aggregate.overlap_heatmap_json:
-                    if group_map.get(cell['x']) == group_map.get(cell['y']):
-                        taxon = group_map.get(cell['x'])
-                        if taxon is None:
-                            continue
-                        report_taxa[taxon]['taxon_heatmap_json'].append(cell)
-            
-            for taxon_report in report_taxa.values():
-                if len(taxon_report['taxon_heatmap_json']) == 0 or len(taxon_report['report_groups']) == 1:
-                    taxon_report['taxon_heatmap_json'] = None
-                else:
-                    taxon_report['taxon_heatmap_json'] = json.dumps(taxon_report['taxon_heatmap_json'])
-
-        report_taxa = list(report_taxa.values())
-        for taxon_report in report_taxa:
-            taxon_report['any_in_control'] = any(
-                report.control_flag == FinalReport.CONTROL_FLAG_PRESENT for report_list in taxon_report['report_groups'].values() for report in report_list
-            )
-
-        if any(species is None for species in reported_taxa.values()):
-            unassigned = {
-                "species": {"name": "Unassigned", "taxid": None},
-                "report_groups": {
-                    rg: sorted_reports[rg] for rg in report_groups if rg.main_species is None
-                },
-                "total_private_counts": sum(
-                    rg.private_counts_safe for rg in report_groups if rg.main_species is None
-                ),
-                "any_in_control": False
-            }
-            unassigned["any_in_control"] = all(
-                report.control_flag == FinalReport.CONTROL_FLAG_PRESENT for report_list in unassigned['report_groups'].values() for report in report_list
-            )
-            report_taxa.append(unassigned)
-        
-        
-        
-        report_taxa = sorted(report_taxa, key=lambda x: len(x["report_groups"]), reverse=True)
-        report_taxa = sorted(report_taxa, key=lambda x: x["total_private_counts"], reverse=True)
-
-        private_reads_available = any(
-            report_group.private_reads_available for report_group in report_groups
-        )
+        private_reads_available = latest_report_aggregate.private_reads_available
 
         #### graph
         graph_progress = TreeProgressGraph(sample)
@@ -3135,7 +3058,7 @@ class Sample_ReportCombined(LoginRequiredMixin, generic.CreateView):
             "nav_project": True,
             "graph_json": graph_json,
             "sort_performed": latest_report_aggregate.sort_performed,
-            "groups_count": len(sorted_reports),
+            "groups_count": latest_report_aggregate.report_groups.count(),
             "min_shared_reads": round(
                 latest_report_aggregate.shared_proportion_threshold * 100, 2
             ),

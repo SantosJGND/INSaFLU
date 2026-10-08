@@ -2232,7 +2232,7 @@ class ReportAggregate(models.Model):
     max_coverage = models.FloatField(blank=True, null=True)
     max_windows_covered = models.FloatField(blank=True, null=True)
 
-    shared_proportion_threshold = models.FloatField(blank=True, null=True)
+    _shared_proportion_threshold = models.FloatField(blank=True, null=True)
     tree_plot_path = models.CharField(max_length=200, blank=True, null=True)
     tree_plot_exists = models.BooleanField(default=False)
 
@@ -2247,17 +2247,38 @@ class ReportAggregate(models.Model):
     sort_performed = models.BooleanField(default=False)
 
     @property
+    def report_groups(self):
+        return ReportGroup.objects.filter(aggregator=self)
+    
+    @property
+    def shared_proportion_threshold(self):
+        if self._shared_proportion_threshold is None:
+            return 0.5
+        return self._shared_proportion_threshold
+
+    @property
     def reports_analyzed(self):
         return [
             report for group in self.report_groups.all() for report in group.reports.all()
         ]
-
 
     @property
     def n_reports_analyzed(self):
         return sum(
             group.reports.all().count() for group in self.report_groups.all()
         )
+    
+    @property
+    def private_reads_available(self):
+        return any(
+            group.private_reads_available for group in self.report_groups.all()
+        )
+
+    @property
+    def clade_heatmap_json(self):
+        import json
+        return json.dumps(self.overlap_heatmap_json) if self.overlap_heatmap_path else None
+
 
 from dataclasses import dataclass
 @dataclass
