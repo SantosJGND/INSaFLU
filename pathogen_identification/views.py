@@ -1051,31 +1051,30 @@ def teleflu_node_info(node, params_df, node_pk):
     }
 
     for pipeline_step in CS.vect_pipeline_televir_workflows_display:
+
         acronym = [x[0] for x in pipeline_step.split(" ")]
         acronym = "".join(acronym).upper()
         params = params_df[params_df.module == pipeline_step].to_dict("records")
-        if params:  # if there are parameters for this module
-            software = params[0].get("software")
+        for block in params:  # if there are parameters for this module
+            software = block.get("software")
             software = software.split("_")[0]
 
-            params = params[0].get("value")
-            params = excise_paths_leaf_last(params)
+            params = block.get("value")
+            params = excise_paths_leaf_last(block.get("value"))
             params = f"{software} {params}"
-        else:
-            params = ""
 
-        node_info["modules"].append(
-            {
-                "module": pipeline_step,
-                "parameters": params,
-                "short_name": acronym,
-                "available": (
-                    "software_on"
-                    if pipeline_step in params_df.module.values
-                    else "software_off"
-                ),
-            }
-        )
+            node_info["modules"].append(
+                {
+                    "module": pipeline_step,
+                    "parameters": params,
+                    "short_name": acronym,
+                    "available": (
+                        "software_on"
+                        if pipeline_step in params_df.module.values
+                        else "software_off"
+                    ),
+                }
+            )
 
     return node_info
 
@@ -1592,7 +1591,6 @@ class Sample_main(BaseBreadcrumbMixin, LoginRequiredMixin, generic.CreateView):
             sample_name = "sample"
             project_name = "project"
 
-        print(runs)
         wrapped_runs = [RunMainWrapper(run) for run in runs]
         runs_table = RunMainTable(
             wrapped_runs, exclude=("created", "nmapped", "mapping")
@@ -1695,8 +1693,7 @@ def inject_references_filter(request, max_references: int = 30):
                     .distinct("accid")
                 )[: max_references]
             except Exception as e:
-                import traceback
-                traceback.print_exc()
+
                 logging.getLogger(__name__).exception("RawReference search failed")
                 raw_qs = RawReference.objects.none()
 
