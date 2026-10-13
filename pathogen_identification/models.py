@@ -195,7 +195,7 @@ class SoftwareTree(models.Model):
         leaves = SoftwareTreeNode.objects.filter(software_tree=self, node_place=SoftwareTreeNode.LEAF_node)
         if not leaves.exists():
             return 0
-        max_index = leaves.aggregate(models.Max('index'))['index__max']
+        max_index = leaves.aggregate(models.Max('tree_index'))['tree_index__max']
         return max_index + 1
 
 class SoftwareTreeNode(models.Model):
