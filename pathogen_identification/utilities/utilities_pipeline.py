@@ -2581,14 +2581,15 @@ class SoftwareTreeUtils:
         leaves = []
         node_dag_dict = {}
         root = None
+
         for node in tree_nodes:
             if node.parent is not None:
                 node_dag_dict.setdefault(node.parent.pk, []).append(node) 
             else:
                 root = node
         
-        if root == None:
-            raise ValueError("Root node not found")
+        #if root == None:
+        #    raise ValueError("Root node not found")
 
         from collections import deque
         queue = deque([root])

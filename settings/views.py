@@ -567,7 +567,7 @@ class PISettingsGroupsView(PISettingsView):
                 #_ = software_utils.get_sample_pathnodes(
                 #    screening=True,
                 #    mapping_only=False,
-                )
+                #)
                 _ = software_utils.get_sample_pathnodes(
                     screening=False,
                     mapping_only=False,
