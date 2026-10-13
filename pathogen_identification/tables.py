@@ -105,50 +105,8 @@ class ProjectTable(tables.Table):
         """
         return record.technology
 
-    def render_processes(self, record):
-        return (
-            f"{self.render_running_processes(record)} / "
-            f"{self.render_queued_processes(record)} / "
-            f"{self.render_finished_processes(record)}"
-        )
-
-    def render_running_processes(self, record):
-        """
-        return number of running processes in this project"""
-
-        parameter_sets = ParameterSet.objects.filter(
-            project=record, sample__sample__is_deleted=False, status=ParameterSet.STATUS_RUNNING
-        ).count()
-        return parameter_sets
-
-    def render_queued_processes(self, record):
-        """
-        return number of queued processes in this project"""
-
-        queued = ParameterSet.objects.filter(
-            project=record, sample__sample__is_deleted=False, status=ParameterSet.STATUS_QUEUED
-        ).count()
-
-        mapping_runs = RunMain.objects.filter(
-            project=record,
-            run_type=RunMain.RUN_TYPE_MAP_REQUEST,
-            status=RunMain.STATUS_PREP,
-            parameter_set__status=ParameterSet.STATUS_PROXIED,
-        ).count()
-
-        queued += mapping_runs
-
-        return queued
-
-    def render_finished_processes(self, record):
-        """
-        return number of finished processes in this project"""
-
-        parameter_sets = ParameterSet.objects.filter(
-            project=record, sample__sample__is_deleted=False, status=ParameterSet.STATUS_FINISHED
-        ).count()
-    
-        return parameter_sets
+    def render_processes(self, record: Projects):
+        return mark_safe(record.render_processes)
 
     def render_settings(self, record):
         color = ""
@@ -776,25 +734,14 @@ class SampleTableOne(tables.Table):
         ).count()
 
 
-    def render_processes(self, record):
+    def render_processes(self, record: PIProject_Sample):
         
         """
         Render the running / queued / finished processes for a sample.
         Prefer precomputed attributes (set by the view) to avoid per-row DB queries.
         Fall back to DB counting if attributes are not present.
         """
-        running = getattr(record, "_proc_running", None)
-        if running is None:
-            # Fallback: preserve previous behavior (single-sample DB queries)
-            running = RunMain.objects.filter(sample=record, status=RunMain.STATUS_RUNNING).count()
-            queued = RunMain.objects.filter(sample=record, status=RunMain.STATUS_QUEUED).count()
-            finished = RunMain.objects.filter(sample=record, status=RunMain.STATUS_FINISHED).count()
-        else:
-            queued = getattr(record, "_proc_queued", 0)
-            finished = getattr(record, "_proc_finished", 0)
-
-        # Simple, safe output (numbers only) — no unescaped HTML required
-        return mark_safe(f"{running} / {queued} / {finished}")
+        return mark_safe(record.render_processes)
 
     def render_finished_processes(self, record):
         """

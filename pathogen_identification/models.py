@@ -129,6 +129,59 @@ class Projects(models.Model):
         project_samples = PIProject_Sample.objects.filter(project=self)
         samples = [project_sample.sample.pk for project_sample in project_samples]
         return samples
+    
+    @property
+    def render_queued_processes(self):
+        """
+        return number of queued processes in this project"""
+
+        queued = ParameterSet.objects.filter(
+            project=self, sample__sample__is_deleted=False, status=ParameterSet.STATUS_QUEUED
+        ).count()
+
+        mapping_runs = RunMain.objects.filter(
+            project=self,
+            run_type=RunMain.RUN_TYPE_MAP_REQUEST,
+            status=RunMain.STATUS_PREP,
+            parameter_set__status=ParameterSet.STATUS_PROXIED,
+        ).count()
+
+        queued += mapping_runs
+
+        return queued
+    
+
+    @property
+    def render_running_processes(self):
+        """
+        return number of running processes in this project"""
+
+        parameter_sets = ParameterSet.objects.filter(
+            project=self, sample__sample__is_deleted=False, status=ParameterSet.STATUS_RUNNING
+        ).count()
+        return parameter_sets
+    
+    @property
+    def render_finished_processes(self):
+        """
+        return number of finished processes in this project"""
+
+        parameter_sets = ParameterSet.objects.filter(
+            project=self, sample__sample__is_deleted=False, status=ParameterSet.STATUS_FINISHED
+        ).count()
+    
+        return parameter_sets
+
+    @property
+    def render_processes(self):
+        return (
+            f"{self.render_running_processes} / "
+            f"{self.render_queued_processes} / "
+            f"{self.render_finished_processes}"
+        )
+
+
+
 
 class ProjectTag(models.Model):
     name = models.CharField(max_length=100, db_index=True, blank=False, null=False)
@@ -426,6 +479,56 @@ class PIProject_Sample(models.Model):
         if os.path.exists(self.media_dir):
             return self.media_dir
         return None
+
+    @property
+    def render_queued_processes(self):
+        """
+        return number of queued processes in this project"""
+
+        queued = ParameterSet.objects.filter(
+            sample=self, sample__sample__is_deleted=False, status=ParameterSet.STATUS_QUEUED
+        ).count()
+
+        mapping_runs = RunMain.objects.filter(
+            sample=self,
+            run_type=RunMain.RUN_TYPE_MAP_REQUEST,
+            status=RunMain.STATUS_PREP,
+            parameter_set__status=ParameterSet.STATUS_PROXIED,
+        ).count()
+
+        queued += mapping_runs
+
+        return queued
+    
+
+    @property
+    def render_running_processes(self):
+        """
+        return number of running processes in this project"""
+
+        parameter_sets = ParameterSet.objects.filter(
+            sample=self, sample__sample__is_deleted=False, status=ParameterSet.STATUS_RUNNING
+        ).count()
+        return parameter_sets
+    
+    @property
+    def render_finished_processes(self):
+        """
+        return number of finished processes in this project"""
+
+        parameter_sets = ParameterSet.objects.filter(
+            sample=self, sample__sample__is_deleted=False, status=ParameterSet.STATUS_FINISHED
+        ).count()
+    
+        return parameter_sets
+
+    @property
+    def render_processes(self):
+        return (
+            f"{self.render_running_processes} / "
+            f"{self.render_queued_processes} / "
+            f"{self.render_finished_processes}"
+        )
 
 
 

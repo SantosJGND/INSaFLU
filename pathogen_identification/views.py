@@ -949,25 +949,6 @@ class MainPage(BaseBreadcrumbMixin, LoginRequiredMixin, generic.CreateView):
             query_set = query_set.filter(Q(name__icontains=query_string)).distinct()
 
         # Precompute per-sample running/queued/finished run counts to avoid N+1 queries
-        run_counts_qs = (
-            RunMain.objects.filter(sample__in=query_set)
-            .values("sample")
-            .annotate(
-                running=Count("pk", filter=Q(status=RunMain.STATUS_RUNNING)),
-                queued=Count("pk", filter=Q(status=RunMain.STATUS_QUEUED)),
-                finished=Count("pk", filter=Q(status=RunMain.STATUS_FINISHED)),
-            )
-        )
-        
-        run_map = {item["sample"]: item for item in run_counts_qs}
-        # Attach precomputed counts onto each sample object used by the table renderer
-        for s in query_set:
-            counts = run_map.get(s.pk, {})
-            s._proc_running = counts.get("running", 0)
-            s._proc_queued = counts.get("queued", 0)
-            s._proc_finished = counts.get("finished", 0)
-
-
         samples = SampleTableOne(query_set)
 
         ### set the check_box
@@ -1688,24 +1669,39 @@ def inject_references_filter(request, max_references: int = 30):
         panel = ReferencePanel.objects.get(pk=panel_id)
 
     references = []
-
     if request.GET.get(tag_add_reference) is not None:
         if table_type == "teleflu_reference":
             request_tag = request.GET.get(tag_add_reference)
-            possible_accid = request_tag.split(".")[0]
+            if request_tag == "":
+                return JsonResponse(inject_references([], request, table_type=table_type))
+
+            possible_accid = request_tag.split(".", 1)[0]
+
+            # Build the search ORs, then apply required AND filters (project + exclude)
+            search_q = (
+                Q(accid__icontains=request_tag)
+                | Q(accid__icontains=possible_accid)
+                | Q(taxid__icontains=request_tag)
+                | Q(description__icontains=request_tag)
+            )
+
             try:
-                references = RawReference.objects.filter(
-                    Q(accid__icontains=request.GET.get(tag_add_reference))
-                    | Q(accid__icontains=possible_accid)
-                    | Q(description__icontains=request.GET.get(tag_add_reference))
-                    & ~Q(description__in=["root", "NA"])
-                    & Q(run__project__pk=project_id)
-                ).distinct("accid")
-
+                # apply project filter and description exclusion after the OR group
+                # limit columns/rows to reduce DB load and avoid evaluating the whole queryset
+                raw_qs = (
+                    RawReference.objects.filter(search_q, run__project__pk=project_id)
+                    .exclude(description__in=["root", "NA"])
+                    .order_by("accid")  # required by Postgres when using distinct('accid')
+                    .distinct("accid")
+                )[: max_references]
             except Exception as e:
-                print(e)
+                import traceback
+                traceback.print_exc()
+                logging.getLogger(__name__).exception("RawReference search failed")
+                raw_qs = RawReference.objects.none()
 
-            if references.count() == 0:
+            # use exists() which is cheaper than count() for presence check
+            if not raw_qs.exists():
                 references = []
             else:
                 reference_utils = RawReferenceUtils(project=project)
@@ -1723,32 +1719,18 @@ def inject_references_filter(request, max_references: int = 30):
                 ).values_list("taxid", flat=True)
 
             try:
+
+                search_q = (
+                    Q(reference_source__description__icontains=request.GET.get(tag_add_reference))
+                    | Q(reference_source__accid__icontains=request.GET.get(tag_add_reference))
+                    | Q(reference_source__taxid__taxid__icontains=request.GET.get(tag_add_reference))
+                    | Q(reference_source_file__file__icontains=request.GET.get(tag_add_reference),
+                        reference_source_file__owner__in=[None, user]  # allow public references only
+                ))
+
                 references = (
                     ReferenceSourceFileMap.objects.filter(
-                        Q(
-                            reference_source__description__icontains=request.GET.get(
-                                tag_add_reference
-                            )
-                        )
-                        | Q(
-                            reference_source__accid__icontains=request.GET.get(
-                                tag_add_reference
-                            )
-                        )
-                        | Q(
-                            reference_source__taxid__taxid__icontains=request.GET.get(
-                                tag_add_reference
-                            )
-                        )
-                        | Q(
-                            reference_source_file__file__icontains=request.GET.get(
-                                tag_add_reference
-                            ),
-                            reference_source_file__owner__in=[
-                                None,
-                                user,
-                            ],  # allow public references only
-                        )
+                        search_q
                     )
                     .exclude(
                         reference_source__taxid__taxid__in=existing_reference_taxids
@@ -2000,7 +1982,9 @@ class ReferenceManagement(BaseBreadcrumbMixin, LoginRequiredMixin, generic.Creat
         context = super().get_context_data(**kwargs)
         user = self.request.user
 
-        tag_search = "search_references"
+        tag_search_name = "search_references_name"
+        tag_search_accid = "search_references_accid"
+        tag_search_taxid = "search_references_taxid"
 
         references = (
             ReferenceSourceFileMap.objects.filter(
@@ -2011,40 +1995,34 @@ class ReferenceManagement(BaseBreadcrumbMixin, LoginRequiredMixin, generic.Creat
             .distinct("reference_source__description", "reference_source__accid")
         )
 
-        if self.request.GET.get(tag_search) != None and self.request.GET.get(
-            tag_search
-        ):
-            query_string = self.request.GET.get(tag_search)
-            query_string = process_query_string(query_string)
+
+        search_queries = []
+        if self.request.GET.get(tag_search_name):
+            search_queries.append(
+                Q(reference_source__description__icontains=process_query_string(self.request.GET.get(tag_search_name))),
+            )
+        if self.request.GET.get(tag_search_accid):
+            search_queries.append(
+                Q(reference_source__accid__icontains=process_query_string(self.request.GET.get(tag_search_accid))),
+            )
+        if self.request.GET.get(tag_search_taxid):
+            search_queries.append(
+                Q(reference_source__taxid__taxid__icontains=process_query_string(self.request.GET.get(tag_search_taxid))),
+            )
+        
+        if search_queries:
+            search_queries = Q(*search_queries, _connector=Q.OR)
 
             references = (
                 ReferenceSourceFileMap.objects.filter(
+                    search_queries,
                     Q(reference_source_file__owner__id=user.pk)
                     | Q(reference_source_file__owner=None)
                 )
                 .order_by("reference_source__description", "reference_source__accid")
                 .distinct("reference_source__description", "reference_source__accid")
             )
-
-            references = references.filter(
-                Q(
-                    reference_source__description__icontains=self.request.GET.get(
-                        tag_search
-                    )
-                )
-                | Q(reference_source__accid__icontains=query_string)
-                | Q(
-                    reference_source__taxid__taxid__icontains=self.request.GET.get(
-                        tag_search
-                    )
-                )
-                | Q(
-                    reference_source_file__file__icontains=self.request.GET.get(
-                        tag_search
-                    )
-                )
-            ) 
-
+        
         summary = {
             "total": references.count(),
             "accession_id": references.values_list("reference_source__accid", flat=True)
@@ -2089,6 +2067,7 @@ class ReferenceManagement(BaseBreadcrumbMixin, LoginRequiredMixin, generic.Creat
 
 
 def check_metadata_table_clean(metadata_table_file) -> Optional[pd.DataFrame]:
+
     """
     check metadata table
     """

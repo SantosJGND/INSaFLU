@@ -2587,9 +2587,6 @@ class SoftwareTreeUtils:
             else:
                 root = node
         
-        #if root == None:
-        #    raise ValueError("Root node not found")
-
         from collections import deque
         queue = deque([root]) if root else deque()
         index = 0
