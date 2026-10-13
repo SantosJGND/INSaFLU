@@ -2586,8 +2586,7 @@ class SoftwareTreeUtils:
                 node_dag_dict.setdefault(node.parent.pk, []).append(node) 
             else:
                 root = node
-
-
+        
         if root == None:
             raise ValueError("Root node not found")
 
