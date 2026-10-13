@@ -2007,7 +2007,7 @@ class ReferenceManagement(BaseBreadcrumbMixin, LoginRequiredMixin, generic.Creat
             )
         if self.request.GET.get(tag_search_taxid):
             search_queries.append(
-                Q(reference_source__taxid__taxid__icontains=process_query_string(self.request.GET.get(tag_search_taxid))),
+                Q(reference_source__taxid__taxid=process_query_string(self.request.GET.get(tag_search_taxid))),
             )
         
         if search_queries:
