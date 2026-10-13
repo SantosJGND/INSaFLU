@@ -1912,12 +1912,11 @@ class Parameter_DB_Utility:
             else:
                 root = node
 
-
-        if root == None:
-            raise ValueError("Root node not found")
+        #if root == None:
+        #    raise ValueError("Root node not found")
 
         from collections import deque
-        queue = deque([root])
+        queue = deque([root]) if root else deque()
         index = 0
         node_index = {}
 
@@ -2592,7 +2591,7 @@ class SoftwareTreeUtils:
         #    raise ValueError("Root node not found")
 
         from collections import deque
-        queue = deque([root])
+        queue = deque([root]) if root else deque()
         index = 0
         node_index = {}
 
