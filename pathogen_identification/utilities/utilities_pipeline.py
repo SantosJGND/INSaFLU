@@ -2702,7 +2702,7 @@ class SoftwareTreeUtils:
                     node_type=tree_node[1][2],
                     parent=software_parent,
                     node_place=SoftwareTreeNode.LEAF_node if is_leaf else SoftwareTreeNode.INTERNAL_node,
-                    index = software_tree.new_leaf_index
+                    tree_index = software_tree.new_leaf_index
                 )
                 software_node.save()
             
@@ -2773,7 +2773,7 @@ class SoftwareTreeUtils:
                         node_type=node[2],
                         parent=parent_node,
                         node_place=is_leaf,
-                        index = software_tree.new_leaf_index
+                        tree_index = software_tree.new_leaf_index
                     )
                     with transaction.atomic():
                         tree_node.save()
