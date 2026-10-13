@@ -1350,9 +1350,9 @@ def turn_on_off_software(request):
                             screening=False,
                             mapping_only=True,
                         )
-                        _ = software_utils.get_sample_pathnodes(
-                            screening=True,
-                            mapping_only=False,
+                        #_ = software_utils.get_sample_pathnodes(
+                        #    screening=True,
+                        #    mapping_only=False,
                         )
                         _ = software_utils.get_sample_pathnodes(
                             screening=False,

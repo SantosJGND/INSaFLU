@@ -418,10 +418,10 @@ class PISettingsView(BaseBreadcrumbMixin, LoginRequiredMixin, ListView):
                     screening=False,
                     mapping_only=True,
                 )
-                _ = software_utils.get_sample_pathnodes(
-                    screening=True,
-                    mapping_only=False,
-                )
+                #_ = software_utils.get_sample_pathnodes(
+                #    screening=True,
+                #    mapping_only=False,
+                #)
                 _ = software_utils.get_sample_pathnodes(
                     screening=False,
                     mapping_only=False,
@@ -564,9 +564,9 @@ class PISettingsGroupsView(PISettingsView):
                     screening=False,
                     mapping_only=True,
                 )
-                _ = software_utils.get_sample_pathnodes(
-                    screening=True,
-                    mapping_only=False,
+                #_ = software_utils.get_sample_pathnodes(
+                #    screening=True,
+                #    mapping_only=False,
                 )
                 _ = software_utils.get_sample_pathnodes(
                     screening=False,
