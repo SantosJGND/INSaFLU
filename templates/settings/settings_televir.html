@@ -7,11 +7,6 @@
 {% load view_breadcrumbs %}
 {% load define_action %}
 
-{% block css %}
-	{% load static %}
-		<link rel="stylesheet" href="{% static 'css/flu-web-site.css' %}" type="text/css" />
-		<link rel="stylesheet" href="{% static 'css/main-page.css' %}" type="text/css" />
-{% endblock css %}
 
 
 {% block extra_messages %}
@@ -21,10 +16,140 @@
 	</div>
 {% endblock extra_messages %}
 
+{% block css %}
+	{% load static %}
+		<link rel="stylesheet" href="{% static 'css/flu-web-site.css' %}" type="text/css" />
+		<link rel="stylesheet" href="{% static 'css/main-page.css' %}" type="text/css" />
 <style>
-	.second_tab .nav-link {
-	}
+    .second_tab .nav-link {
+    }
+
+    /* Profiles modal: 3-column grid, cuter/airier cards */
+    #id-modal-body-profiles-tags .profiles-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;                      /* more space between cards */
+        align-items: start;
+        width: 100%;
+        padding: 12px;                  /* breathing room inside modal */
+        box-sizing: border-box;
+    }
+
+    /* each profile is a compact, cuter card */
+    #id-modal-body-profiles-tags .profile-card {
+        border-radius: 12px;            /* softer corners */
+        min-height: 84px;
+        padding: 14px;
+        box-shadow: 0 6px 18px rgba(33,33,33,0.08);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        border: 1px solid rgba(0,0,0,0.06);
+        overflow: hidden;
+        transition: transform .14s ease, box-shadow .14s ease, filter .14s ease;
+        background-image: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0));
+        backdrop-filter: blur(2px);
+        cursor: default;
+    }
+
+    /* subtle lift on hover and press */
+    #id-modal-body-profiles-tags .profile-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 28px rgba(33,33,33,0.12);
+        filter: saturate(1.03);
+    }
+    #id-modal-body-profiles-tags .profile-card:active {
+        transform: translateY(-1px) scale(.998);
+    }
+
+    /* avatar / left column for initials (optional) */
+    #id-modal-body-profiles-tags .profile-card .profile-avatar {
+        width: 46px;
+        height: 46px;
+        min-width: 46px;
+        border-radius: 10px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        color: rgba(255,255,255,0.95);
+        font-size: 1rem;
+        background: rgba(255,255,255,0.06);
+        box-shadow: inset 0 -2px 6px rgba(0,0,0,0.06);
+    }
+
+    #id-modal-body-profiles-tags .profile-card .profile-info {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 0;
+        overflow: hidden;
+    }
+
+    #id-modal-body-profiles-tags .profile-card .profile-info h6 {
+        margin: 0;
+        font-weight: 800; /* bolder */
+        font-size: 1.02rem; /* slightly larger */
+        line-height: 1.08;
+        color: inherit;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        overflow: hidden;
+    }
+
+    /* a tiny tag icon to make it cuter */
+    #id-modal-body-profiles-tags .profile-card .profile-info h6::before {
+        content: "🏷️";
+        margin-right: 8px;
+        display: inline-block;
+        transform: translateY(-1px);
+        font-size: 0.98rem;
+        opacity: 0.95;
+    }
+
+    #id-modal-body-profiles-tags .profile-card .profile-info p {
+        margin: 0;
+        font-size: 0.85rem;
+        opacity: 0.95;
+        color: inherit;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    #id-modal-body-profiles-tags .profile-card .delete-profile {
+        border: none;
+        background: rgba(0,0,0,0.12);
+        width: 36px;
+        height: 36px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        color: inherit;
+        font-weight: 700;
+        transition: background .12s ease, transform .12s ease;
+    }
+
+    #id-modal-body-profiles-tags .profile-card .delete-profile:hover {
+        background: rgba(255,85,85,0.95);
+        color: #fff;
+        transform: scale(1.06);
+    }
+
+    /* responsive fallbacks */
+    @media (max-width: 900px) {
+        #id-modal-body-profiles-tags .profiles-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    }
+    @media (max-width: 600px) {
+        #id-modal-body-profiles-tags .profiles-grid { grid-template-columns: 1fr; gap: 10px; }
+        #id-modal-body-profiles-tags .profile-card { padding: 12px; }
+        #id-modal-body-profiles-tags .profile-card .profile-info h6 { font-size: 1rem; white-space: normal; }
+        #id-modal-body-profiles-tags .profile-card .profile-info p { white-space: normal; }
+    }
 </style>
+{% endblock css %}
 
 {% block content %}
 
@@ -256,17 +381,16 @@
 
 					<!-- Modal Header -->
 					<div class="modal-header alert alert-warning">
-						<h4 class="modal-title-remove">Project Tags</h4>
+						<h4 class="modal-title-remove">Settings profiles</h4>
 						<button type="button" class="close" data-dismiss="modal">&times;</button>
 					</div>
 
 					<!-- Modal body -->
 					<div class="modal-body mw-100">
 						<div id="id-modal-body-profiles-tags" user-profiles-url="{% url 'get_user_profiles' %}">
-							<div class="row">
-								<div class="col-12">
-									<!-- Tags will be dynamically loaded here -->
-								</div>
+							<!-- grid container for profiles -->
+							<div class="profiles-grid" role="list" aria-label="Profiles list">
+								<!-- Profiles will be dynamically loaded here -->
 							</div>
 						</div>
 					</div>
@@ -354,7 +478,7 @@
     });
 	
 	$(document).on("click", "#id_project_tags_link", function () {
-		url = $('#id-modal-body-profiles-tags').attr('user-profiles-url');
+         url = $('#id-modal-body-profiles-tags').attr('user-profiles-url');
 		$.ajax({
 			url: url,
 			method: "POST",
@@ -364,22 +488,20 @@
 			success: function (data) {
 				let profilesHtml = '';
 				data.user_profiles.forEach(profile => {
+					const bg = profile.color || '#2f6bed';
+					const textColor = getContrastColor(bg);
 					profilesHtml += `
-                        <div class="col-12 mb-3">
-                            <div class="card">
-                                <div class="card-body d-flex align-items-center justify-content-between p-3">
-                                    <div>
-                                        <h6 class="card-title mb-1">${profile.name}</h6>
-                                        <p class="card-text small text-muted mb-0">${profile.description || 'No description'}</p>
-                                        <p class="card-text small text-muted mb-0">technology: ${profile.technology}</p>
-                                    </div>
-                                    <button class="btn btn-danger btn-sm delete-profile" data-tag-id="${profile.id}">x</button>
-                                </div>
-                            </div>
-                        </div>
-                    `;
+						<div class="profile-card" style="background-color: ${bg}; color: ${textColor};">
+							<div class="profile-info">
+								<h6>${profile.name}</h6>
+								<p class="mb-0">${profile.description || 'No description'}</p>
+								<p class="mb-0" style="opacity:0.9; font-size:0.82rem;">technology: ${profile.technology || ''}</p>
+							</div>
+							<button class="delete-profile" data-tag-id="${profile.id}" title="Delete profile">×</button>
+						</div>
+					`;
 				});
-				$('#id-modal-body-profiles-tags .row .col-12').html(profilesHtml);
+				$('#id-modal-body-profiles-tags .profiles-grid').html(profilesHtml);
 			},
 			error: function (xhr, errmsg, err) {
 				alert(errmsg);
@@ -395,25 +517,23 @@
 			url: url,
 			method: "POST",
 			data: { csrfmiddlewaretoken: '{{ csrf_token }}' },
-			success: function (data) {
-				let profilesHtml = '';
-					data.user_profiles.forEach(profile => {
-						profilesHtml += `
-							<div class="col-12 mb-3">
-								<div class="card">
-									<div class="card-body d-flex align-items-center justify-content-between p-3">
-										<div>
-											<h6 class="card-title mb-1">${profile.name}</h6>
-											<p class="card-text small text-muted mb-0">${profile.description || 'No description'}</p>
-											<p class="card-text small text-muted mb-0">technology: ${profile.technology}</p>
-										</div>
-										<button class="btn btn-danger btn-sm delete-profile" data-tag-id="${profile.id}">x</button>
-									</div>
-								</div>
-							</div>
-						`;
-				});
-				$('#id-modal-body-profiles-tags .row .col-12').html(profilesHtml);
+            success: function (data) {
+                let profilesHtml = '';
+                data.user_profiles.forEach(profile => {
+                    const bg = profile.color || '#2f6bed';
+                    const textColor = getContrastColor(bg);
+                    profilesHtml += `
+                    <div class="profile-card" style="background-color: ${bg}; color: ${textColor};">
+                        <div class="profile-info">
+                            <h6>${profile.name}</h6>
+                            <p class="mb-0">${profile.description || 'No description'}</p>
+                            <p class="mb-0" style="opacity:0.9; font-size:0.82rem;">technology: ${profile.technology || ''}</p>
+                        </div>
+                        <button class="delete-profile" data-tag-id="${profile.id}" title="Delete profile">×</button>
+                    </div>
+                `;
+                });
+                $('#id-modal-body-profiles-tags .profiles-grid').html(profilesHtml);
 			},
 			error: function (xhr, errmsg, err) {
 				alert(errmsg);
@@ -557,6 +677,19 @@
 		});
 	});
 
+	// helper: contrast color (white or black) for readability over background color
+	function getContrastColor(hex) {
+		if (!hex) return '#fff';
+		hex = ('' + hex).replace('#', '');
+		if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+		if (hex.length !== 6) return '#fff';
+		const r = parseInt(hex.substr(0, 2), 16);
+		const g = parseInt(hex.substr(2, 2), 16);
+		const b = parseInt(hex.substr(4, 2), 16);
+		const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+		return yiq >= 128 ? '#000' : '#fff';
+	}
+	
 	</script>
 	
 {% endblock %}

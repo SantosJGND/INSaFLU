@@ -29,7 +29,7 @@ from utils.result import DecodeObjects, MaskingConsensus
 from django.db.models import Q
 from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
-
+import random
 
 @csrf_protect
 def set_default_parameters(request):
@@ -980,12 +980,12 @@ def turn_on_off_software(request):
 
                             makeup = (
                                 pipeline_makeup.match_makeup_name_from_list(
-                                    pipeline_steps_televir_project
+                                    pipeline_steps_televir_global
                                 )
                             )
 
                             if software.pipeline_step.name in ConstantsSettings.vect_pipeline_televir_classic:
-                                makeup = pipeline_makeup.check_makeuplist_has_classification(pipeline_steps_televir_project)
+                                makeup = pipeline_makeup.check_makeuplist_has_classification(pipeline_steps_televir_global)
 
                             if makeup is None:
                                 data["message"] = (
@@ -1544,17 +1544,37 @@ def get_user_televir_profiles_all(request):
     data = {"is_ok": False, "message": "You are not allow to do this operation."}
     if request.headers.get("x-requested-with") == "XMLHttpRequest":
         try:
-            user_profiles = TelevirProjectProfile.objects.filter(
-                Q(user=request.user)
-                | Q(public=True)
-            ).values("id", "name", "description")
-            print(user_profiles)
-            data["user_profiles"] = list(user_profiles)
+            # load profiles and include color + project technology for the frontend
+            profiles_qs = TelevirProjectProfile.objects.filter(
+                Q(user=request.user) | Q(public=True)
+            )
+
+            user_profiles = []
+            for p in profiles_qs:
+                tech_name = ""
+                try:
+                    tech_name = p.project.technology if p.project and p.project.technology else ""
+                except Exception:
+                    tech_name = ""
+                user_profiles.append(
+                    {
+                        "id": p.pk,
+                        "name": p.name,
+                        "description": p.description or "",
+                        "color": p.color or "#f9f9f9",
+                        "technology": tech_name,
+                    }
+                )
+
+            data["user_profiles"] = user_profiles
             data["is_ok"] = True
             data["message"] = "User profiles retrieved successfully."
         except Exception as e:
             print(e)
+            traceback.print_exc()
             data["message"] = "Error in the database."
+    
+    print(data)
     return JsonResponse(data)
 
 
@@ -1655,6 +1675,7 @@ def create_user_televir_profile(request):
                 description=profile_description,
                 public=request.POST.get("is_public", False),
                 project=new_project,
+                color = random.choice(TelevirProjectProfile.PROFILE_COLOR_PALETTE)
             )
             data["is_ok"] = True
             data["message"] = "User profile created successfully."
