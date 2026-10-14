@@ -1832,7 +1832,7 @@ def get_project_tags(request):
         return JsonResponse(data)
 
 @csrf_protect
-def delete_tag(request):
+def delete_project_tag(request):
     """
     Delete a tag for the current user
     """

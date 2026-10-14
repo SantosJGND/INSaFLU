@@ -41,10 +41,10 @@
 			<!-- Info settings -->
 			<hr>
 			{% if main_settings %}
-				<p class="insa-description-process" style="text-align: center;">Please choose <strong>your software mine settings</strong> 
+				<p class="insa-description-process" style="text-align: center;">Please choose <strong>your software settings</strong> 
 					before uploading new samples to your account.</p>
 			{% else %}
-				<p class="insa-description-process" style="text-align: center;">Please choose <strong>your software mine settings</strong></p>
+				<p class="insa-description-process" style="text-align: center;">Please choose <strong>your software settings</strong></p>
 			{% endif %}
 		
 			<!-- NAV tabs -->
@@ -157,33 +157,46 @@
 		{% endif %}
 		<!-- End length softwares to show -->
 		
-		<!--  Go back  function -->	
-		{% if project_settings %}
-			<br>
-			<a id="id_go_back_button" href="{% url 'projects' %}" class="btn btn-small btn-primary dark"><i class="fa fa-arrow-left"></i> Go back</a>	
-		{% elif project_sample_settings %}
-			<br>
-			<a id="id_go_back_button" href="{% url 'show-sample-project-results' project_sample.project.pk %}" class="btn btn-small btn-primary dark"><i class="fa fa-arrow-left"></i> Go back</a>
-		{% elif sample_settings %}
-			<br>
-			<a id="id_go_back_button" href="{% url 'samples' %}" class="btn btn-small btn-primary dark"><i class="fa fa-arrow-left"></i> Go back</a>
-		{% elif settings_pathogenid %}
-            <br> 
-            <a id="id_go_back_button" href="{% url 'settings-index' %}" class="btn btn-small btn-primary dark"><i class="fa fa-arrow-left"></i> Go back</a>
-        {% elif settings_pathid_project %}
-				{% if settings_pathid_sample %}
-					<br> 
-					<a id="id_go_back_button" href="{% url 'sample_references_management' sample_id %}" class="btn btn-small btn-primary dark"><i class="fa fa-arrow-left"></i> Go back</a>
-				{% else %}
-					<br>
-					<button style="cursor:pointer;" class= "btn btn-small btn-primary">
-					<a id="reverse_button" ><i class="fa fa-arrow-left"></i> Go back</a>
-					</button>
-					<a id="id_go_back_button" href="{% url 'PIproject_samples' pk=project_id %}" class="btn btn-small btn-primary dark"><i class="fa fa-suitcase"></i> Project Page</a>	
+		<!--  Go back  function -->
 
-					{% endif %}
-        {% endif %}
-		
+		<div class="d-flex flex-wrap align-items-center">
+			</button>	
+			{% if project_settings %}
+				<br>
+				<a id="id_go_back_button" href="{% url 'projects' %}" class="btn btn-small btn-primary dark"><i class="fa fa-arrow-left"></i> Go back</a>	
+			{% elif project_sample_settings %}
+				<br>
+				<a id="id_go_back_button" href="{% url 'show-sample-project-results' project_sample.project.pk %}" class="btn btn-small btn-primary dark"><i class="fa fa-arrow-left"></i> Go back</a>
+			{% elif sample_settings %}
+				<br>
+				<a id="id_go_back_button" href="{% url 'samples' %}" class="btn btn-small btn-primary dark"><i class="fa fa-arrow-left"></i> Go back</a>
+			{% elif settings_pathogenid %}
+				<br> 
+				<a id="id_go_back_button" href="{% url 'settings-index' %}" class="btn btn-small btn-primary dark"><i class="fa fa-arrow-left"></i> Go back</a>
+			{% elif settings_pathid_project %}
+					{% if settings_pathid_sample %}
+						<br> 
+						<a id="id_go_back_button" href="{% url 'sample_references_management' sample_id %}" class="btn btn-small btn-primary dark"><i class="fa fa-arrow-left"></i> Go back</a>
+					{% else %}
+						<br>
+						<button style="cursor:pointer;" class= "btn btn-small btn-primary">
+						<a id="reverse_button" ><i class="fa fa-arrow-left"></i> Go back</a>
+						</button>
+						<a id="id_go_back_button" href="{% url 'PIproject_samples' pk=project_id %}" class="btn btn-small btn-primary dark"><i class="fa fa-suitcase"></i> Project Page</a>	
+
+						{% endif %}
+			{% endif %}
+
+
+			<button class="btn btn-small btn-primary dark" style="margin-left: 10px;">
+				<a href="#id_profile_tags_modal" id="id_project_tags_link" class="text-white" data-toggle="modal" data-toggle="tooltip" title="User Tags">
+					<i class="fa fa-tag"></i>  Settings Profiles
+				</a>
+			</button>
+
+		</div>
+
+
 		<!-- Set default Modal -->
 		<div class="modal fade" id="id_set_default_modal" >
 			<div class="modal-dialog">
@@ -236,92 +249,71 @@
 	 		</div>
 		</div>
 		
-		<!-- Define limits to mask sequences -->
-		<div class="modal fade" id="id_set_positions_to_mask_regions" mask-consensus-url="{% url 'mask_consensus' %}" \
-					mask-consensus-actual-values-url="{% url 'mask_consensus_actual_values' %}" >
-			<div class="modal-dialog">
+		<!-- The user tags modal -->
+		<div class="modal fade" id="id_profile_tags_modal">
+			<div class="modal-dialog modal-lg">
 				<div class="modal-content">
-   
+
 					<!-- Modal Header -->
-					<div class="modal-header alert alert-primary">
-						<h4 id="id_tile_mask_consensus" class="modal-title-remove">Set positions to mask consensus</h4>
+					<div class="modal-header alert alert-warning">
+						<h4 class="modal-title-remove">Project Tags</h4>
 						<button type="button" class="close" data-dismiss="modal">&times;</button>
 					</div>
-  
+
 					<!-- Modal body -->
-					<div class="modal-body mx-auto mw-100">
-						<!-- Warning -->
-						<div class="row"> 
-	  						<div class="col-sm-12">
-	  							<div id="id_message_warning_project"></div>
-	  						</div>
-	  					</div>
-						<div class="row"> 
-	  						<div class="col-sm-12">
-	  							<label id="id-label-name" class="col-form-label extra_info">Reference</label>
-	  						</div>
-	  					</div>
-	  					<div class="row"> 
-	  						<div class="col-sm-12">
-	  							<label id="id_select_sites" class="col-form-label"> Element: </label>
-	  							<select id="combo_select_elements_mask_id" class="custom-select mx-sm-3">
-			      				</select>
-			      				<label id="id_select_length" class="col-form-label"> </label>
-	  						</div>
-	  					</div>
-	  					<div class="row"> 
-	  						<div class="col-sm-6"> 
-	  							<div id="div_id_mask_sites" class="form-group"> 
-	  								<label for="id_mask_sites" class="col-form-label"> Mask sites </label>
-	  								<div class=""> <input type="text" name="mask sites" maxlength="200" class="textinput textInput form-control"
-	  									id="id_mask_sites"  value="" placeholder="34,67,4" > <!--  value="3232,23,23" pattern="([0-9]{1,},){1,}"--> 
-	  									<small id="hint_id_mask_sites" class="form-text text-muted">Mask consensus in a specific positions. Positions separated by comma. Positions are 1-indexed. Ex: 34,67,4</small> 
-	  								</div> 
-	  								<div id="id_mask_sites_error"></div>
-	  							</div> 
-	  						</div>
-							<div class="col-sm-6">
-								<div id="div_id_mask_regions" class="form-group">
-									<label for="id_mask_regions" class="col-form-label "> Mask regions </label>
-									<div class=""> <input type="text" name="mask_regions" maxlength="200" class="textinput textInput form-control"
-										id="id_mask_regions" value="" placeholder="30-60,100-453"> 
-										<small id="hint_id_mask_regions" class="form-text text-muted">Mask consensus by regions. Region limits separated by dash. More than one region separated by comma. Positions are 1-indexed. Ex: 30-60,100-453</small>
-									</div>
-									<div id="id_mask_regions_error"></div>
+					<div class="modal-body mw-100">
+						<div id="id-modal-body-profiles-tags" user-profiles-url="{% url 'get_user_profiles' %}">
+							<div class="row">
+								<div class="col-12">
+									<!-- Tags will be dynamically loaded here -->
 								</div>
 							</div>
 						</div>
-						<div class="row">
-							<div class="col-sm-6">
-								<div id="div_id_mask_from_beginning" class="form-group">
-									<label for="id_mask_from_beginning" class="col-form-label "> Mask from beginning </label>
-									<div class=""> <input type="text" name="mask_from_beginning" maxlength="200" class="textinput textInput form-control"
-										id="id_mask_from_beginning" value="" placeholder="110"> 
-										<small id="hint_id_mask_from_beginning" class="form-text text-muted">Mask consensus from beginning till this position. Positions are 1-indexed.</small>
-									</div>
-									<div id="id_mask_from_beginning_error"></div>
-								</div>
-							</div> 
-	  						<div class="col-sm-6"> 
-	  							<div id="div_id_mask_till_ends" class="form-group"> 
-	  								<label for="id_mask_till_ends" class="col-form-label"> Mask from end </label>
-	  								<div class=""> <input type="text" name="mask from ends" maxlength="200" class="textinput textInput form-control"
-	  									id="id_mask_till_ends" value="" placeholder="453"> 
-	  									<small id="hint_id_mask_from_ends" class="form-text text-muted">Mask consensus from end to this position. Positions are 1-indexed.</small> 
-	  								</div> 
-	  								<div id="id_mask_from_till_error"></div>
-	  							</div> 
-	  						</div>
-						</div>
-  					</div>
-  					<!-- Modal footer -->
-  					<div class="modal-footer" id="id-modal-footer-remove">
-    					<button id="id-mask-consensus" type="button" class="btn btn-primary" data-dismiss="modal">Mask Consensus</button>
-    					<button type="button" class="btn btn-secondary" data-dismiss="modal" aria-hidden="true">Cancel</button>
-  					</div>
+					</div>
+					<!-- Modal footer -->
+					<div class="modal-footer" id="id-modal-footer-remove">
+						<button id="id-new-tag-button" type="button" class="btn btn-primary" delete-profile-url="{% url 'delete_profile' %}" create-new-tag-url="{% url 'create_new_profile' %}">Create new profile</button>
+					</div>
 				</div>
-	 		</div>
+			</div>
 		</div>
+
+		<!-- Create tag modal (name, description, technology) -->
+		<div class="modal fade" id="id_create_tag_modal" tabindex="-1" role="dialog" aria-hidden="true">
+			<div class="modal-dialog">
+				<div class="modal-content">
+					<div class="modal-header alert alert-info">
+						<h5 class="modal-title">Create new profile</h5>
+						<button type="button" class="close" data-dismiss="modal">&times;</button>
+					</div>
+					<div class="modal-body">
+						<form id="id-create-tag-form" onsubmit="return false;">
+							<div class="form-group">
+								<label for="id_create_tag_name">Name</label>
+								<input type="text" class="form-control" id="id_create_tag_name" placeholder="Profile name" required>
+							</div>
+							<div class="form-group">
+								<label for="id_create_tag_description">Description</label>
+								<textarea class="form-control" id="id_create_tag_description" rows="3" placeholder="Optional description"></textarea>
+							</div>
+							<div class="form-group">
+								<label for="id_create_tag_technology">Technology (optional)</label>
+								<select id="id_create_tag_technology" class="form-control">
+									<option value="Illumina">Illumina</option>
+									<option value="ONT">Oxford Nanopore (ONT)</option>
+								</select>
+							</div>
+						</form>
+					</div>
+					<div class="modal-footer">
+						<button id="id-create-tag-submit" type="button" class="btn btn-primary">Create</button>
+						<button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+					</div>
+				</div>
+			</div>
+		</div>
+
+
 	{% endif %}   <!-- error_cant_see -->
 {% endblock content %}
 
@@ -333,15 +325,238 @@
 		<script type="text/javascript" src="{% static 'js/settings/set_nav_tab_televir.js' %}"></script>
 	
 	<script>
+	
+	/// set wait screen
+	$('#id_go_back_button').on('click', function(){
+		wait_screen();
+	});
+	$('#reverse_button').on('click', function(){
+		wait_screen();
+		window.history.back();
+	});
+
+    // ensure unblockUI when any modal is fully hidden (click outside, ESC, or close)
+    $(document).on('hidden.bs.modal', '.modal', function () {
+        try { $.unblockUI(); } catch (e) { /* ignore if blockUI missing */ }
+    });
+
+    // fallback: if a leftover backdrop is clicked/left behind
+    $(document).on('click', '.modal-backdrop', function () {
+        try { $.unblockUI(); } catch (e) { /* ignore */ }
+    });
+
+    $('#id_create_tag_modal').on('shown.bs.modal', function () {
+        $('#id_create_tag_name, #id_create_tag_description, #id_create_tag_technology').each(function () {
+            $(this).prop('disabled', false).prop('readonly', false).removeAttr('disabled').removeAttr('readonly').removeClass('disabled');
+        });
+        // focus first field
+        $('#id_create_tag_name').focus();
+    });
+	
+	$(document).on("click", "#id_project_tags_link", function () {
+		url = $('#id-modal-body-profiles-tags').attr('user-profiles-url');
+		$.ajax({
+			url: url,
+			method: "POST",
+			data: {
+				csrfmiddlewaretoken: '{{ csrf_token }}'
+			},
+			success: function (data) {
+				let profilesHtml = '';
+				data.user_profiles.forEach(profile => {
+					profilesHtml += `
+                        <div class="col-12 mb-3">
+                            <div class="card">
+                                <div class="card-body d-flex align-items-center justify-content-between p-3">
+                                    <div>
+                                        <h6 class="card-title mb-1">${profile.name}</h6>
+                                        <p class="card-text small text-muted mb-0">${profile.description || 'No description'}</p>
+                                        <p class="card-text small text-muted mb-0">technology: ${profile.technology}</p>
+                                    </div>
+                                    <button class="btn btn-danger btn-sm delete-profile" data-tag-id="${profile.id}">x</button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+				});
+				$('#id-modal-body-profiles-tags .row .col-12').html(profilesHtml);
+			},
+			error: function (xhr, errmsg, err) {
+				alert(errmsg);
+				console.log(xhr.status + ": " + xhr.responseText);
+			}
+		});
+	});
+
+	// helper to refresh tag list (used after creating a new tag)
+	function refreshTags() {
+		let url = $('#id-modal-body-profiles-tags').attr('user-profiles-url');
+		$.ajax({
+			url: url,
+			method: "POST",
+			data: { csrfmiddlewaretoken: '{{ csrf_token }}' },
+			success: function (data) {
+				let profilesHtml = '';
+					data.user_profiles.forEach(profile => {
+						profilesHtml += `
+							<div class="col-12 mb-3">
+								<div class="card">
+									<div class="card-body d-flex align-items-center justify-content-between p-3">
+										<div>
+											<h6 class="card-title mb-1">${profile.name}</h6>
+											<p class="card-text small text-muted mb-0">${profile.description || 'No description'}</p>
+											<p class="card-text small text-muted mb-0">technology: ${profile.technology}</p>
+										</div>
+										<button class="btn btn-danger btn-sm delete-profile" data-tag-id="${profile.id}">x</button>
+									</div>
+								</div>
+							</div>
+						`;
+				});
+				$('#id-modal-body-profiles-tags .row .col-12').html(profilesHtml);
+			},
+			error: function (xhr, errmsg, err) {
+				alert(errmsg);
+			}
+		});
+	}
+
+    // delete profile function
+    $(document).on("click", ".delete-profile", function () {
+        let tagId = $(this).data('tag-id');
+        let deleteUrl = $('#id-new-tag-button').attr('delete-profile-url') || '';
+        // ensure trailing slash to avoid POST -> 301 -> GET problems
+        if (deleteUrl && !deleteUrl.endsWith('/')) deleteUrl = deleteUrl + '/';
+        console.log('Deleting profile with ID:', tagId, 'using URL:', deleteUrl);
+		csrf_token = '{{ csrf_token }}';
+		console.log('CSRF token:', csrf_token);
+        if (!deleteUrl) {
+            alert('Delete URL not found.');
+            return;
+        }
+
+		$.ajax({
+			url: deleteUrl,
+			type: "POST",
+			data: {
+				csrfmiddlewaretoken: csrf_token,
+				profile_id: tagId
+			},
+			success: function (data) {
+				if (data["is_ok"]) {
+					refreshTags();
+				} else {
+					alert(data.error || data.message || 'Could not delete profile.');
+				}
+			},
+			error: function (xhr, errmsg, err) {
+				console.error('Error deleting profile:', xhr.status, xhr.responseText);
+				alert('Error deleting profile: ' + (xhr.statusText || errmsg));
+			}
+		});
+    });
+
+	// open create-tag modal
+    $(document).on("click", "#id-new-tag-button", function (e) {
+        e.preventDefault();
+        var parentModal = $('#id_profile_tags_modal');
+        var createModal = $('#id_create_tag_modal');
+
+        // move child to body to avoid nesting problems
+        createModal.appendTo('body');
+
+        // hide parent first
+        parentModal.modal('hide');
+
+        // when parent fully hidden, clean backdrops and show child
+        parentModal.one('hidden.bs.modal', function () {
+            // remove any lingering backdrop elements that can block clicks
+            $('.modal-backdrop').remove();
+
+            // ensure child modal z-index is above backdrop
+            createModal.css('z-index', 1060);
+
+            // show child modal
+            createModal.modal({
+                backdrop: true,
+                keyboard: true,
+                focus: true,
+                show: true
+            });
+        });
+    });
+
+    // when create modal is shown, force-enable inputs and fix stacking issues
+    $('#id_create_tag_modal').off('shown.bs.modal.fixInputs').on('shown.bs.modal.fixInputs', function () {
+        console.log('Create-tag modal shown: fixing inputs and overlays');
 		
-		/// set wait screen
-		$('#id_go_back_button').on('click', function(){
-			wait_screen();
+		// remove common blocking overlays (jQuery.blockUI, custom wait screen, stray backdrops)
+        try { if (typeof unblockUI === 'function') unblockUI(); } catch (e) { /* ignore */ }
+        $('.blockUI, .blockOverlay, #wait-screen, .wait-screen-overlay').remove();
+        $('.modal-backdrop').remove();
+
+        // ensure no body-level block classes remain
+        $('body').removeClass('blocked-ui').css('overflow', '');
+
+        // ensure no leftover backdrops are covering the modal
+        $('.modal-backdrop').css('z-index', 1050);
+
+        // bring modal on top and allow interactions
+        $(this).css({'z-index': 1060, 'pointer-events': 'auto'});
+
+        // enable inputs (works even if form HTML can't be edited)
+        $('#id_create_tag_name, #id_create_tag_description, #id_create_tag_technology').each(function () {
+            $(this).prop('disabled', false).prop('readonly', false).removeAttr('disabled').removeAttr('readonly').removeClass('disabled').css('pointer-events', 'auto');
+        });
+
+        // also enable dialog children
+        $('#id_create_tag_modal .modal-dialog, #id_create_tag_modal input, #id_create_tag_modal textarea, #id_create_tag_modal select, #id_create_tag_modal button')
+            .css('pointer-events', 'auto').prop('disabled', false);
+
+        // debug helper
+        console.log('Create-tag modal shown: removed overlays and enabled inputs');
+
+        // focus first field
+        $('#id_create_tag_name').focus();
+    });
+
+	// submit create tag form via AJAX
+	$(document).on("click", "#id-create-tag-submit", function () {
+
+		let createTagUrl = $('#id-new-tag-button').attr('create-new-tag-url');
+		let name = $('#id_create_tag_name').val().trim();
+		let description = $('#id_create_tag_description').val().trim();
+		let technology = $('#id_create_tag_technology').val();
+
+		if (!name) {
+			alert('Please enter a profile name.');
+			return;
+		}
+
+		$.ajax({
+			url: createTagUrl,
+			method: "POST",
+			data: {
+				csrfmiddlewaretoken: '{{ csrf_token }}',
+				name: name,
+				description: description,
+				technology_name: technology
+			},
+			success: function (data) {
+				if (data["is_ok"]) {
+					$('#id_create_tag_modal').modal('hide');
+					refreshTags();
+				} else {
+					alert(data.error || 'Could not create profile.');
+				}
+			},
+			error: function (xhr, errmsg, err) {
+				alert('Error creating profile: ' + errmsg);
+				console.log(xhr.status + ": " + xhr.responseText);
+			}
 		});
-		$('#reverse_button').on('click', function(){
-			wait_screen();
-			window.history.back();
-		});
+	});
+
 	</script>
 	
 {% endblock %}

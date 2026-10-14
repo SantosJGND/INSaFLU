@@ -144,6 +144,11 @@ urlpatterns = [
         name="create_user_project_tag",
     ),
     re_path(
+        r"delete_tag",
+        PIajax_views.delete_project_tag,
+        name="delete_project_tag",
+    ),
+    re_path(
         r"project_tag_candidates",
         PIajax_views.possible_project_tags,
         name="project_tag_candidates"

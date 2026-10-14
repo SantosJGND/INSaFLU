@@ -452,6 +452,32 @@
 		}
 	});
 
+	function removeTag(tagId) {
+		if (confirm("Are you sure you want to remove this tag?")) {
+			$.ajax({
+				url: "{% url 'delete_project_tag' %}",
+				method: "POST",
+				data: {
+					tag_id: tagId,
+					csrfmiddlewaretoken: '{{ csrf_token }}'
+				},
+				success: function (data) {
+					if (data['is_ok']) {
+						alert("Tag removed successfully!");
+						// Optionally, refresh the tags list
+						$("#id_project_tags_link").click();
+					} else {
+						alert("Error removing tag: " + data.error);
+					}
+				},
+				error: function (xhr, errmsg, err) {
+					alert(errmsg);
+					console.log(xhr.status + ": " + xhr.responseText);
+				}
+			});
+		}
+	}
+
 
 	/// set wait screen
 	$(document).on("click", "a", function (e) {

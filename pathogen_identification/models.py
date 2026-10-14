@@ -102,6 +102,8 @@ class Projects(models.Model):
         default=settings.APP_VERSION_NUMBER, max_length=10
     )
 
+    is_profile = models.BooleanField(default=False)
+
     @property
     def is_up_to_date(self):
         return packaging.version.parse(self.updated_version) >= packaging.version.parse(
