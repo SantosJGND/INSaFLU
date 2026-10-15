@@ -1574,7 +1574,6 @@ def get_user_televir_profiles_all(request):
             traceback.print_exc()
             data["message"] = "Error in the database."
     
-    print(data)
     return JsonResponse(data)
 
 
@@ -1584,17 +1583,36 @@ def get_user_televir_profiles_technology(request):
     if request.headers.get("x-requested-with") == "XMLHttpRequest":
         technology_name = request.GET.get("technology_name", ConstantsSettings.TECHNOLOGY_illumina)
         try:
-            user_profiles = TelevirProjectProfile.objects.filter(
+            profiles_qs = TelevirProjectProfile.objects.filter(
                 Q(user=request.user)
                 | Q(public=True),
-                project__technology__name=technology_name
-            ).values("id", "name", "description")
+                project__technology=technology_name
+            )
+
+            user_profiles = []
+
+            for p in profiles_qs:
+                tech_name = ""
+                try:
+                    tech_name = p.project.technology if p.project and p.project.technology else ""
+                except Exception:
+                    tech_name = ""
+                user_profiles.append(
+                    {
+                        "id": p.pk,
+                        "name": p.name,
+                        "description": p.description or "",
+                        "color": p.color or "#f9f9f9",
+                        "technology": tech_name,
+                    }
+                )
 
             data["user_profiles"] = list(user_profiles)
             data["is_ok"] = True
             data["message"] = "User profiles retrieved successfully."
         except Exception as e:
             print(e)
+
             data["message"] = "Error in the database."
     return JsonResponse(data)
 
@@ -1605,7 +1623,6 @@ def create_user_televir_profile(request):
     if request.headers.get("x-requested-with") == "XMLHttpRequest":
         profile_name = request.POST.get("name")
         profile_description = request.POST.get("description", "")
-
         if not profile_name:
             data["message"] = "Profile name is required."
             return JsonResponse(data)
@@ -1692,11 +1709,9 @@ def create_user_televir_profile(request):
 @login_required
 @csrf_protect
 def delete_user_televir_profile(request):
-    print("#oinm")
     data = {"is_ok": False, "message": "You are not allow to do this operation."}
     if request.headers.get("x-requested-with") == "XMLHttpRequest":
         profile_id = request.POST.get("profile_id")
-        print("## Deleting profile with ID:", profile_id)
 
         if not profile_id:
             data["message"] = "Profile ID is required."
@@ -1706,7 +1721,6 @@ def delete_user_televir_profile(request):
 
             profile = TelevirProjectProfile.objects.get(pk=profile_id, user=request.user)
             project = profile.project
-            print(profile)
             # Delete the profile first
             profile.delete()
 
@@ -1735,7 +1749,7 @@ def delete_user_televir_profile(request):
     return JsonResponse(data)
 
 @csrf_protect
-def copy_profile(request):
+def copy_user_televir_profile(request):
     data = {"is_ok": False, "message": "You are not allow to do this operation."}
     if request.headers.get("x-requested-with") == "XMLHttpRequest":
         profile_id = request.POST.get("profile_id")
@@ -1746,9 +1760,25 @@ def copy_profile(request):
         project_software = Software.objects.filter(
             parameter__televir_project__pk=project_id
         )
+        errors = ""
         try:
 
             for software in project_software:
+                profile_software = Software.objects.filter(
+                    name=software.name,
+                    name_extended=software.name_extended,
+                    type_of_use=software.type_of_use,
+                    parameter__televir_project=profile_project,
+                    parameter__televir_project_sample=None,
+                    pipeline_step=software.pipeline_step,
+                ).distinct().first()
+
+                if not profile_software:
+                    errors += f"Software {software.name_extended} not found in profile project. "
+                    continue
+                software.is_to_run = profile_software.is_to_run
+                software.save()
+
                 software_parameters = Parameter.objects.filter(
                     software=software,
                 )

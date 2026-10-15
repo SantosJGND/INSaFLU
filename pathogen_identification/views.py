@@ -431,7 +431,7 @@ class PathId_ProjectsView(BaseBreadcrumbMixin, LoginRequiredMixin, ListView):
         context = super(PathId_ProjectsView, self).get_context_data(**kwargs)
         tag_search = "search_projects"
         query_set = Projects.objects.filter(
-            owner__id=self.request.user.id, is_deleted=False
+            owner__id=self.request.user.id, is_deleted=False, is_profile= False
         ).order_by("-creation_date")
 
         if self.request.GET.get(tag_search) != None and self.request.GET.get(
@@ -442,8 +442,6 @@ class PathId_ProjectsView(BaseBreadcrumbMixin, LoginRequiredMixin, ListView):
                 Q(name__icontains=self.request.GET.get(tag_search))
                 | Q(project_samples__name__icontains=query_string)
             ).distinct()
-        
-
 
         table = ProjectTable(query_set)
 

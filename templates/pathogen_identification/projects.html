@@ -15,22 +15,16 @@
 
 {% block content %}
 
-<style>
-	.table tbody tr {
-		margin-bottom: 10px; /* Add space between rows */
-		border-radius: 10px; /* Make rows rounder */
-		border: 1px solid #ddd; /* Add a border to rows */
-		overflow: hidden; /* Ensure content stays within rounded corners */
-	}
-	
-	.table tbody tr td {
-		padding: 15px; /* Add padding inside cells */
-	}
-	
-	.table tbody tr:hover {
-		background-color: #f9f9f9; /* Highlight row on hover */
-	}
-</style>
+    <!-- store csrf token in DOM so JS can fetch it (avoid embedding token directly in JS) -->
+    <input type="hidden" id="id_csrf_token" value="{{ csrf_token }}" />
+
+{% block css %}
+    {% load static %}
+        <link rel="stylesheet" href="{% static 'css/flu-web-site.css' %}" type="text/css" />
+        <link rel="stylesheet" href="{% static 'css/main-page.css' %}" type="text/css" />
+        <link rel="stylesheet" href="{% static 'css/televir-projects.css' %}" type="text/css" />
+
+{% endblock css %}
 
 {% if table.page or show_paginatior %}
 <div class="table-container">
@@ -179,85 +173,83 @@
 
 <!-- The user tags modal -->
 <div class="modal fade" id="id_user_tags_modal">
-	<div class="modal-dialog modal-lg">
-		<div class="modal-content">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
 
-			<!-- Modal Header -->
-			<div class="modal-header alert alert-warning">
-				<h4 class="modal-title-remove">Project Tags</h4>
-				<button type="button" class="close" data-dismiss="modal">&times;</button>
-			</div>
+            <!-- Modal Header -->
+            <div class="modal-header alert alert-warning">
+                <h4 class="modal-title-remove">Project Tags</h4>
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
 
-			<!-- Modal body -->
-			<div class="modal-body mw-100">
-				<div id="id-modal-body-project-tags" user-tags-url="{% url 'get_user_tags' %}">
-					<div class="row">
-						<div class="col-12">
-							<!-- Tags will be dynamically loaded here -->
-						</div>
-					</div>
-				</div>
-			</div>
-			<!-- Modal footer -->
-			<div class="modal-footer" id="id-modal-footer-remove">
-				<button id="id-new-tag-button" type="button" class="btn btn-primary">Create new tag</button>
-			</div>
-		</div>
-	</div>
+            <!-- Modal body -->
+            <div class="modal-body mw-100">
+                <div id="id-modal-body-project-tags" user-tags-url="{% url 'get_user_tags' %}">
+                    <!-- grid container for tags -->
+                    <div class="profiles-grid" role="list" aria-label="User tags list">
+                        <!-- Tags will be dynamically loaded here -->
+                    </div>
+                </div>
+            </div>
+            <!-- Modal footer -->
+            <div class="modal-footer" id="id-modal-footer-remove">
+                <button id="id-new-tag-button" type="button" class="btn btn-primary">Create new tag</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- The add tags to project modal -->
 <div class="modal fade" id="id_add_tags_modal">
-	<div class="modal-dialog">
-		<div class="modal-content">
+    <div class="modal-dialog">
+        <div class="modal-content">
 
-			<!-- Modal Header -->
-			<div class="modal-header alert alert-warning">
-				<h4 class="modal-title-remove">Add Tags to Project</h4>
-				<button type="button" class="close" data-dismiss="modal">&times;</button>
-			</div>
+            <!-- Modal Header -->
+            <div class="modal-header alert alert-warning">
+                <h4 class="modal-title-remove">Add Tags to Project</h4>
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
 
-			<!-- Modal body -->
-			<div class="modal-body mw-100">
-				<div id="id-modal-body-add-tags" tag_candidates_url="{% url 'project_tag_candidates' %}">
-					<div class="row">
-						<div class="col-12">
-							<!-- Tags will be dynamically loaded here -->
-						</div>
-					</div>
-				</div>
-			</div>
+            <!-- Modal body -->
+            <div class="modal-body mw-100">
+                <div id="id-modal-body-add-tags" tag_candidates_url="{% url 'project_tag_candidates' %}">
+                    <!-- grid container for candidate tags -->
+                    <div class="profiles-grid" role="list" aria-label="Tag candidates list">
+                        <!-- Tags will be dynamically loaded here -->
+                    </div>
+                </div>
+            </div>
 
-		</div>
-	</div>
+        </div>
+    </div>
 </div>
 
 <!-- The display project tags modal -->
 <div class="modal fade" id="id_manage_tags_modal">
-	<div class="modal-dialog modal-lg">
-		<div class="modal-content">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
 
-			<!-- Modal Header -->
-			<div class="modal-header alert alert-warning">
-				<h4 class="modal-title-remove">Project Tags</h4>
-				<button type="button" class="close" data-dismiss="modal">&times;</button>
-			</div>
+            <!-- Modal Header -->
+            <div class="modal-header alert alert-warning">
+                <h4 class="modal-title-remove">Project Tags</h4>
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
 
-			<!-- Modal body -->
-			<div class="modal-body mw-100">
-				<div id="id-modal-body-display-project-tags" project-tags-url="{% url 'get_project_tags' %}">
-					<div class="row">
-						<div class="col-12">
-							<!-- Tags will be dynamically loaded here -->
-						</div>
-					</div>
-				</div>
-			</div>
-		</div>
-	</div>
+            <!-- Modal body -->
+            <div class="modal-body mw-100">
+                <div id="id-modal-body-display-project-tags" project-tags-url="{% url 'get_project_tags' %}">
+                    <!-- grid container for project tags -->
+                    <div class="profiles-grid" role="list" aria-label="Project tags list">
+                        <!-- Tags will be dynamically loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 {% endblock content %}
+
 
 
 {% block js %}
@@ -266,229 +258,236 @@
 <script type="text/javascript" src="{% static 'js/televir_projects/remove_projects.js' %}"></script>
 
 <script>
-	$(document).ready(function () {
-		$('#id-cancel-button').click(function () {
-			$.unblockUI();
-		});
-		$('#id-reset-button').click(function () {
-			$.unblockUI();
-		});
-		$('#id-remove-button').click(function () {
-			$.unblockUI();
-		});
-		$('#id-deploy-explify-button').click(function () {
-			$.unblockUI();
-		});
-		// unblock when click in button class close
-		$('.close').click(function () {
-			$.unblockUI();
-		});
-	});
+    // helper to read CSRF token from DOM
+    function getCsrfToken() {
+        return $('#id_csrf_token').val();
+    }
 
-	$(document).on("click", "#id_manage_tags", function () {
-		url = $('#id-modal-body-display-project-tags').attr('project-tags-url');
-		project_id = $(this).attr('project_pk');
-		$.ajax({
-			url: url,
-			method: "POST",
-			data: {
-				project_id: project_id,
-				csrfmiddlewaretoken: '{{ csrf_token }}'
-			},
-			success: function (data) {
-				let tagsHtml = '';
-				data.tags.forEach(tag => {
-					tagsHtml += `
-						<div class="col-12 mb-3">
-							<div class="card">
-								<div class="card-body d-flex align-items-center justify-content-between p-3">
-									<div>
-										<h6 class="card-title mb-1">${tag.name}</h6>
-										<p class="card-text small text-muted mb-0">${tag.description || 'No description'}</p>
-									</div>
-									<button class="btn btn-danger btn-sm" data-tag-id="${tag.id}" onclick="removeTag(${tag.id})">x</button>
-								</div>
-							</div>
-						</div>
-					`;
-				});
-				$('#id-modal-body-display-project-tags .row .col-12').html(tagsHtml);
-			},
-			error: function (xhr, errmsg, err) {
-				alert(errmsg);
-				console.log(xhr.status + ": " + xhr.responseText);
-			}
-		});
-	});
+    $(document).ready(function () {
+        $('#id-cancel-button').click(function () {
+            $.unblockUI();
+        });
+        $('#id-reset-button').click(function () {
+            $.unblockUI();
+        });
+        $('#id-remove-button').click(function () {
+            $.unblockUI();
+        });
+        $('#id-deploy-explify-button').click(function () {
+            $.unblockUI();
+        });
+        // unblock when click in button class close
+        $('.close').click(function () {
+            $.unblockUI();
+        });
+    });
+
+	    /// set wait screen
+    $('#id_go_back_button').on('click', function(){
+        wait_screen();
+    });
+    $('#reverse_button').on('click', function(){
+        wait_screen();
+        window.history.back();
+    });
+
+    // ensure unblockUI when any modal is fully hidden (click outside, ESC, or close)
+    $(document).on('hidden.bs.modal', '.modal', function () {
+        try { $.unblockUI(); } catch (e) { /* ignore if blockUI missing */ }
+    });
+
+    // fallback: if a leftover backdrop is clicked/left behind
+    $(document).on('click', '.modal-backdrop', function () {
+        try { $.unblockUI(); } catch (e) { /* ignore */ }
+    });
+
+	// small helper used to pick readable text color for colored tag cards
+    function getContrastColor(hex) {
+        if (!hex) return '#fff';
+        hex = ('' + hex).replace('#', '');
+        if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+        if (hex.length !== 6) return '#fff';
+        const r = parseInt(hex.substr(0, 2), 16);
+        const g = parseInt(hex.substr(2, 2), 16);
+        const b = parseInt(hex.substr(4, 2), 16);
+        const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+        return yiq >= 128 ? '#000' : '#fff';
+    }
+
+    $(document).on("click", "#id_manage_tags", function () {
+        url = $('#id-modal-body-display-project-tags').attr('project-tags-url');
+        project_id = $(this).attr('project_pk');
+        $.ajax({
+            url: url,
+            method: "POST",
+            data: {
+                project_id: project_id,
+                csrfmiddlewaretoken: getCsrfToken()
+            },
+            success: function (data) {
+                let tagsHtml = '';
+                data.tags.forEach(tag => {
+                    const bg = tag.color || '#2f6bed';
+                    const textColor = getContrastColor(bg);
+                    tagsHtml += `
+                        <div class="profile-card" style="background-color: ${bg}; color: ${textColor};">
+                            <div class="profile-info">
+                                <h6>${tag.name}</h6>
+                                <p class="mb-0 small text-muted">${tag.description || 'No description'}</p>
+                            </div>
+                            <button class="delete-profile btn btn-danger btn-sm" data-tag-id="${tag.id}" onclick="removeTag(${tag.id})">×</button>
+                        </div>
+                    `;
+                });
+                $('#id-modal-body-display-project-tags .profiles-grid').html(tagsHtml);
+            },
+            error: function (xhr, errmsg, err) {
+                alert(errmsg);
+                console.log(xhr.status + ": " + xhr.responseText);
+            }
+        });
+    });
 
 
-	$(document).on("click", "#id_add_tags", function () {
-		url = $('#id-modal-body-add-tags').attr('tag_candidates_url');
-		project_id = $(this).attr('project_pk');
-		$.ajax({
-			url: url,
-			method: "POST",
+    $(document).on("click", "#id_add_tags", function () {
+        url = $('#id-modal-body-add-tags').attr('tag_candidates_url');
+        project_id = $(this).attr('project_pk');
+        $.ajax({
+            url: url,
+            method: "POST",
             data : {
-				project_id : project_id,
-				csrfmiddlewaretoken: '{{ csrf_token }}'
-			},
-			success: function (data) {
-				let tagsHtml = '';
-				data.tags.forEach(tag => {
-					tagsHtml += `
-						<div class="col-12 mb-3">
-							<div class="card">
-								<div class="card-body d-flex align-items-center justify-content-between p-3">
-									<div>
-										<h6 class="card-title mb-1">${tag.name}</h6>
-									</div>
-									<button  class="btn btn-small btn-primary" ">
-									<a id="add_tag_to_project" href="#" tag_id="${tag.id}" class="add_tag text-white" data-toggle="tooltip" title="Add tag to project">
-										<i class="fa fa-plus"></i>
-									</a>
-									</button>
-								</div>
-							</div>
-						</div>
-					`;
-				});
-				$('#id-modal-body-add-tags .row .col-12').html(tagsHtml);
-				$('.add_tag').click(function () {
+                project_id : project_id,
+                csrfmiddlewaretoken: getCsrfToken()
+            },
+            success: function (data) {
+                let tagsHtml = '';
+                data.tags.forEach(tag => {
+                    const bg = tag.color || '#f5f7ff';
+                    const textColor = getContrastColor(bg);
+                    tagsHtml += `
+                        <div class="profile-card" style="background-color: ${bg}; color: ${textColor};">
+                            <div class="profile-info">
+                                <h6>${tag.name}</h6>
+                            </div>
+                            <button class="btn btn-small btn-primary add_tag" data-tag-id="${tag.id}" data-project-id="${project_id}" title="Add tag to project">
+                                <i class="fa fa-plus"></i>
+                            </button>
+                        </div>
+                    `;
+                });
+                $('#id-modal-body-add-tags .profiles-grid').html(tagsHtml);
 
-					let tagId = $(this).attr('tag_id');
-					let tagCard = $(this).closest('.col-12.mb-3');
-					$.ajax({
-						url: "{% url 'assign_tag_to_project' %}",
-						method: "POST",
-						data: {
-							project_id: project_id,
-							tag_id: tagId,
-							csrfmiddlewaretoken: '{{ csrf_token }}'
-						},
-						success: function (data) {
-							if (data['is_ok']) {
-								alert("Tag added to project successfully!");
-								// Optionally, refresh the tags list
-								tagCard.remove();
-							} else {
-								alert("Error adding tag to project: " + data.error);
-							}
-						},
-						error: function (xhr, errmsg, err) {
-							alert(errmsg);
-							console.log(xhr.status + ": " + xhr.responseText);
-						}
-					});
-				});
-			},
-			error: function (xhr, errmsg, err) {
-				alert(errmsg);
-				console.log(xhr.status + ": " + xhr.responseText);
-			}
-		});
-	});
+                // bind after DOM injection
+                $('.add_tag').off('click').on('click', function (e) {
+                    e.preventDefault();
+                    let tagId = $(this).data('tag-id');
+                    let projectId = $(this).data('project-id');
+                    let tagCard = $(this).closest('.profile-card');
+                    $.ajax({
+                        url: "{% url 'assign_tag_to_project' %}",
+                        method: "POST",
+                        data: {
+                            project_id: projectId,
+                            tag_id: tagId,
+                            csrfmiddlewaretoken: getCsrfToken()
+                        },
+                        success: function (data) {
+                            if (data['is_ok']) {
+                                // transient non-blocking notice and remove card
+                                var $note = $('<div class="alert alert-success" role="alert" style="position:fixed;top:16px;right:16px;z-index:2100;padding:8px 12px;border-radius:6px;">Tag added</div>');
+                                $('body').append($note);
+                                setTimeout(function () { $note.fadeOut(220, function () { $(this).remove(); }); }, 900);
+                                tagCard.remove();
+                            } else {
+                                alert("Error adding tag to project: " + data.error);
+                            }
+                        },
+                        error: function (xhr, errmsg, err) {
+                            alert(errmsg);
+                            console.log(xhr.status + ": " + xhr.responseText);
+                        }
+                    });
+                });
+            },
+            error: function (xhr, errmsg, err) {
+                alert(errmsg);
+                console.log(xhr.status + ": " + xhr.responseText);
+            }
+        });
+    });
 
-	$(document).on("click", "#id_project_tags_link", function () {
-		url = $('#id-modal-body-project-tags').attr('user-tags-url');
-		$.ajax({
-			url: url,
-			method: "POST",
-			data: {
-				csrfmiddlewaretoken: '{{ csrf_token }}'
-			},
-			success: function (data) {
-				let tagsHtml = '';
-				data.tags.forEach(tag => {
-					tagsHtml += `
-						<div class="col-12 mb-3">
-							<div class="card">
-								<div class="card-body d-flex align-items-center justify-content-between p-3">
-									<div>
-										<h6 class="card-title mb-1">${tag.name}</h6>
-										<p class="card-text small text-muted mb-0">${tag.description || 'No description'}</p>
-									</div>
-									<button class="btn btn-danger btn-sm" data-tag-id="${tag.id}" onclick="removeTag(${tag.id})">x</button>
-								</div>
-							</div>
-						</div>
-					`;
-				});
-				$('#id-modal-body-project-tags .row .col-12').html(tagsHtml);
-			},
-			error: function (xhr, errmsg, err) {
-				alert(errmsg);
-				console.log(xhr.status + ": " + xhr.responseText);
-			}
-		});
-	});
-
-
-	$(document).on("click", "#id-new-tag-button", function () {
-		let tagName = prompt("Enter the name of the new tag:");
-		if (tagName) {
-			let tagDescription = prompt("Enter a description for the new tag (optional):");
-			$.ajax({
-				url: "{% url 'create_user_project_tag' %}",
-				method: "POST",
-				data: {
-					name: tagName,
-					description: tagDescription,
-					csrfmiddlewaretoken: '{{ csrf_token }}'
-				},
-				success: function (data) {
-					if (data['is_ok']) {
-						alert("Tag created successfully!");
-						// Optionally, refresh the tags list
-						$("#id_project_tags_link").click();
-					} else {
-						alert("Error creating tag: " + data.error);
-					}
-				},
-				error: function (xhr, errmsg, err) {
-					alert(errmsg);
-					console.log(xhr.status + ": " + xhr.responseText);
-				}
-			});
-		}
-	});
-
-	function removeTag(tagId) {
-		if (confirm("Are you sure you want to remove this tag?")) {
-			$.ajax({
-				url: "{% url 'delete_project_tag' %}",
-				method: "POST",
-				data: {
-					tag_id: tagId,
-					csrfmiddlewaretoken: '{{ csrf_token }}'
-				},
-				success: function (data) {
-					if (data['is_ok']) {
-						alert("Tag removed successfully!");
-						// Optionally, refresh the tags list
-						$("#id_project_tags_link").click();
-					} else {
-						alert("Error removing tag: " + data.error);
-					}
-				},
-				error: function (xhr, errmsg, err) {
-					alert(errmsg);
-					console.log(xhr.status + ": " + xhr.responseText);
-				}
-			});
-		}
-	}
+    $(document).on("click", "#id_project_tags_link", function () {
+        url = $('#id-modal-body-project-tags').attr('user-tags-url');
+        $.ajax({
+            url: url,
+            method: "POST",
+            data: {
+                csrfmiddlewaretoken: getCsrfToken()
+            },
+            success: function (data) {
+                let tagsHtml = '';
+                data.tags.forEach(tag => {
+                    const bg = tag.color || '#2f6bed';
+                    const textColor = getContrastColor(bg);
+                    tagsHtml += `
+                        <div class="profile-card" style="background-color: ${bg}; color: ${textColor};">
+                            <div class="profile-info">
+                                <h6>${tag.name}</h6>
+                                <p class="small text-muted">${tag.description || 'No description'}</p>
+                            </div>
+                            <button class="delete-profile btn btn-danger btn-sm" data-tag-id="${tag.id}" onclick="removeTag(${tag.id})">×</button>
+                        </div>
+                    `;
+                });
+                $('#id-modal-body-project-tags .profiles-grid').html(tagsHtml);
+            },
+            error: function (xhr, errmsg, err) {
+                alert(errmsg);
+                console.log(xhr.status + ": " + xhr.responseText);
+            }
+        });
+    });
 
 
-	/// set wait screen
-	$(document).on("click", "a", function (e) {
-		var id_ = $(this).attr('id');
-		var href = $(this).attr('href');
-		var onclick = $(this).attr('onclick');
-		if (href !== '#id_set_default_modal' && onclick !== 'return false;' && id_ !== 'sidenavToggler' &&
-			!href.startsWith('/media') && !href.startsWith('http')) {
-			wait_screen();
-		}
-	});
+    $(document).on("click", "#id-new-tag-button", function () {
+        let tagName = prompt("Enter the name of the new tag:");
+        if (tagName) {
+            let tagDescription = prompt("Enter a description for the new tag (optional):");
+            $.ajax({
+                url: "{% url 'create_user_project_tag' %}",
+                method: "POST",
+                data: {
+                    name: tagName,
+                    description: tagDescription,
+                    csrfmiddlewaretoken: getCsrfToken()
+                },
+                success: function (data) {
+                    if (data['is_ok']) {
+                        // refresh the tags list inside modal if open
+                        alert("Tag created successfully!");
+                        $("#id_project_tags_link").click();
+                    } else {
+                        alert("Error creating tag: " + data.error);
+                    }
+                },
+                error: function (xhr, errmsg, err) {
+                    alert(errmsg);
+                    console.log(xhr.status + ": " + xhr.responseText);
+                }
+            });
+        }
+    });
+
+    /// set wait screen
+    $(document).on("click", "a", function (e) {
+        var id_ = $(this).attr('id');
+        var href = $(this).attr('href');
+        var onclick = $(this).attr('onclick');
+        if (href !== '#id_set_default_modal' && onclick !== 'return false;' && id_ !== 'sidenavToggler' &&
+            !href.startsWith('/media') && !href.startsWith('http')) {
+            wait_screen();
+        }
+    });
 
 </script>
 

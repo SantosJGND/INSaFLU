@@ -96,9 +96,19 @@ urlpatterns = [
         name="get_user_profiles"
     ),
     path(
+        "ajax/get_user_tech_profiles",
+        ajax_views.get_user_televir_profiles_technology,
+        name="get_user_tech_profiles",
+    ),
+    path(
         "ajax/create_new_profile", 
         ajax_views.create_user_televir_profile, 
         name="create_new_profile"
+    ),
+    path(
+        "ajax/copy_profile", 
+        ajax_views.copy_user_televir_profile, 
+        name="copy_televir_profile"
     ),
     path("", views.index.as_view(), name="settings-index"),
     path("403/", views.Maintenance.as_view(), name="under_construction"),

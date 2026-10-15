@@ -17,315 +17,182 @@
 {% endblock extra_messages %}
 
 {% block css %}
-	{% load static %}
-		<link rel="stylesheet" href="{% static 'css/flu-web-site.css' %}" type="text/css" />
-		<link rel="stylesheet" href="{% static 'css/main-page.css' %}" type="text/css" />
-<style>
-    .second_tab .nav-link {
-    }
-
-    /* Profiles modal: 3-column grid, cuter/airier cards */
-    #id-modal-body-profiles-tags .profiles-grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 16px;                      /* more space between cards */
-        align-items: start;
-        width: 100%;
-        padding: 12px;                  /* breathing room inside modal */
-        box-sizing: border-box;
-    }
-
-    /* each profile is a compact, cuter card */
-    #id-modal-body-profiles-tags .profile-card {
-        border-radius: 12px;            /* softer corners */
-        min-height: 84px;
-        padding: 14px;
-        box-shadow: 0 6px 18px rgba(33,33,33,0.08);
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-        border: 1px solid rgba(0,0,0,0.06);
-        overflow: hidden;
-        transition: transform .14s ease, box-shadow .14s ease, filter .14s ease;
-        background-image: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0));
-        backdrop-filter: blur(2px);
-        cursor: default;
-    }
-
-    /* subtle lift on hover and press */
-    #id-modal-body-profiles-tags .profile-card:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 12px 28px rgba(33,33,33,0.12);
-        filter: saturate(1.03);
-    }
-    #id-modal-body-profiles-tags .profile-card:active {
-        transform: translateY(-1px) scale(.998);
-    }
-
-    /* avatar / left column for initials (optional) */
-    #id-modal-body-profiles-tags .profile-card .profile-avatar {
-        width: 46px;
-        height: 46px;
-        min-width: 46px;
-        border-radius: 10px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: 800;
-        color: rgba(255,255,255,0.95);
-        font-size: 1rem;
-        background: rgba(255,255,255,0.06);
-        box-shadow: inset 0 -2px 6px rgba(0,0,0,0.06);
-    }
-
-    #id-modal-body-profiles-tags .profile-card .profile-info {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        min-width: 0;
-        overflow: hidden;
-    }
-
-    #id-modal-body-profiles-tags .profile-card .profile-info h6 {
-        margin: 0;
-        font-weight: 800; /* bolder */
-        font-size: 1.02rem; /* slightly larger */
-        line-height: 1.08;
-        color: inherit;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        overflow: hidden;
-    }
-
-    /* a tiny tag icon to make it cuter */
-    #id-modal-body-profiles-tags .profile-card .profile-info h6::before {
-        content: "🏷️";
-        margin-right: 8px;
-        display: inline-block;
-        transform: translateY(-1px);
-        font-size: 0.98rem;
-        opacity: 0.95;
-    }
-
-    #id-modal-body-profiles-tags .profile-card .profile-info p {
-        margin: 0;
-        font-size: 0.85rem;
-        opacity: 0.95;
-        color: inherit;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-
-    #id-modal-body-profiles-tags .profile-card .delete-profile {
-        border: none;
-        background: rgba(0,0,0,0.12);
-        width: 36px;
-        height: 36px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 8px;
-        color: inherit;
-        font-weight: 700;
-        transition: background .12s ease, transform .12s ease;
-    }
-
-    #id-modal-body-profiles-tags .profile-card .delete-profile:hover {
-        background: rgba(255,85,85,0.95);
-        color: #fff;
-        transform: scale(1.06);
-    }
-
-    /* responsive fallbacks */
-    @media (max-width: 900px) {
-        #id-modal-body-profiles-tags .profiles-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
-    }
-    @media (max-width: 600px) {
-        #id-modal-body-profiles-tags .profiles-grid { grid-template-columns: 1fr; gap: 10px; }
-        #id-modal-body-profiles-tags .profile-card { padding: 12px; }
-        #id-modal-body-profiles-tags .profile-card .profile-info h6 { font-size: 1rem; white-space: normal; }
-        #id-modal-body-profiles-tags .profile-card .profile-info p { white-space: normal; }
-    }
-</style>
+    {% load static %}
+        <link rel="stylesheet" href="{% static 'css/flu-web-site.css' %}" type="text/css" />
+        <link rel="stylesheet" href="{% static 'css/main-page.css' %}" type="text/css" />
+        <link rel="stylesheet" href="{% static 'css/televir-settings.css' %}" type="text/css" />
 {% endblock css %}
 
 {% block content %}
 
-	{% if error_cant_see %}
-		<hr>
-		<p><strong>Project sample settings not available</strong></p>
-	{% else %}
-		
-		<!-- test if there's any software -->
-		{% if all_softwares|length == 0 %}
-			<hr>
-			<p class="insa-description-process" style="text-align: center;">There's no software to show</p>
-		{% else %}
-			<!-- Info settings -->
-			<hr>
-			{% if main_settings %}
-				<p class="insa-description-process" style="text-align: center;">Please choose <strong>your software settings</strong> 
-					before uploading new samples to your account.</p>
-			{% else %}
-				<p class="insa-description-process" style="text-align: center;">Please choose <strong>your software settings</strong></p>
-			{% endif %}
-		
-			<!-- NAV tabs -->
-			<div >
-				<ul id="main_tab" class="nav nav-tabs p-0 justify-content-end justify-content-md-center" role="tablist">
-					{% for technology_id, tech_name, vect_pipeline in all_softwares %}
-						<li class="nav-item"><a class="nav-link fa fa-align-justify"
-							href="#{{technology_id}}" role="tab" data-toggle="tab"
-							index_main="{{forloop.counter0}}" number_indexes="{{all_softwares|length}}"> {{ tech_name }}</a></li>
-	                {% endfor %}
-				</ul>
-				
-				<div class="tab-content">
-					{% for technology_id, tech_name, group_tables in all_softwares %}
-						<div id="{{technology_id}}" role="tabpanel" class="tab-pane fade box-blue" style="background-color: #eaebff;">
-							<div>
-								<ul id="second_tab_{{forloop.counter0}}" number_groups="{{group_tables|length}}" 
-									class="second_tab nav nav-tabs p-0 justify-content-end justify-content-md-center" role="tablist">
-									{% for group_name, vect_pipeline in group_tables %}
-										<li class="nav-item"><a class="nav-link fa fa-align-justify" 
-											href="#{{group_name}}_{{forloop.parentloop.counter0}}_{{forloop.counter0}}" role="tab" data-toggle="tab" 
-											index_tech="{{forloop.parentloop.counter0}}" index_group="{{forloop.counter0}}" number_groups="{{group_tables|length}}"
-											> {{ group_name }}</a></li>
-									{% endfor %}
-								</ul>
-								<div class="tab-content">
-									{% for group_name, vect_pipeline in group_tables %}
-										<div id="{{group_name}}_{{forloop.parentloop.counter0}}_{{forloop.counter0}}" role="tabpanel" class="tab-pane fade box-blue">
-											<div>
-												<ul id="third_tab_{{forloop.parentloop.counter0}}_{{forloop.counter0}}" number_pipelines="{{vect_pipeline|length}}"
-													class="nav nav-tabs p-0 justify-content-end justify-content-md-center" role="tablist">
-													{% for unique_pipeline_id, pipeline_name, table in vect_pipeline %}
-														<li class="nav-item"><a class="nav-link fa fa-align-justify" 
-															href="#{{unique_pipeline_id}}" role="tab" data-toggle="tab" > {{ pipeline_name }}</a></li>
-													{% endfor %}
-												</ul>
-												
-												<div class="tab-content">
-													<!--  for each pipeline -->
-													{% for unique_pipeline_id, pipeline_name, table in vect_pipeline %}
-														<div id="{{unique_pipeline_id}}" role="tabpanel" class="tab-pane fade box-blue">
-															<hr>
-															<div class="table-responsive">  <!-- start table -->
-																<table class="table table-hover table-bordered table-striped"{% if table.attrs %} {{ table.attrs.as_html }} {% endif %}>
-																	{% block table.thead %}
-																	<thead>                 
-																		<tr class="alert alert-primary">
-																			<th colspan="7">
-																				{% if project_settings %}
-																					<div class="header-software-settings">Software parameters for project: '{{project.name}}'</div>
-																				{% elif project_sample_settings %}
-																					<div class="header-software-settings">Software parameters for project: '{{project_sample.project.name}}' and sample: '{{project_sample.sample.name}}'</div>
-																				{% elif sample_settings %}
-																					<div class="header-software-settings">Software parameters for sample: '{{sample.name}}'</div>
-																				{% else %}
-																					<div class="header-software-settings">Global software parameters</div>
-																				{% endif %}
-																			</th>                  
-																		</tr>
-																	
-																		<tr>
-																			{% for column in table.columns %}
-																				<th {{ column.attrs.th.as_html }}>{{ column.header }}</th>
-																			{% endfor %}
-																		</tr>
-																	</thead>
-																	{% endblock table.thead %}
-																	{% block table.tbody %}
-																	<tbody>
-																		{% for row in table.page.object_list|default:table.rows %} {# support pagination #}
-																			{% block table.tbody.row %}
-																			<tr id="row_{{ row.record.id }}" class="{% cycle "odd" "even" %}">
-																				{% for column, cell in row.items %}
-																					<td {{ column.attrs.td.as_html }}>{{ cell }}</td>
-																				{% endfor %}
-																			</tr>
-																			{% endblock table.tbody.row %}
-																				{% empty %}
-																				{% if table.empty_text %}
-																					{% block table.tbody.empty_text %}
-																						<tr><td colspan="{{ table.columns|length }}">{{ table.empty_text }}</td></tr>
-																					{% endblock table.tbody.empty_text %}
-																				{% endif %}
-																		{% endfor %}
-																	</tbody>
-																	{% endblock table.tbody %}
-																	{% block table.tfoot %}
-																		<tfoot></tfoot>
-																	{% endblock table.tfoot %}
-																</table>
-															</div>	<!-- end table -->
-														</div>	<!-- end tabpanel -->
-													{% endfor %}
-												</div>
-											</div>	
-										</div>	<!-- end tabpanel -->
-									{% endfor %}
-								</div>
-							</div>
-						</div>	<!-- robpanel -->
-					{% endfor %}
-				</div>	<!-- tab-content -->
-			</div> <!-- container -->
-			
-			<br>
-			<p class="insa-description bg-insa-fixed-top" style=""><strong>Note:</strong> you should fit the parameters
-				to the conditions you are working with, e.g., default end’s trimming size for ONT may be
-				too restrictive depending on design of your tiling amplicon multiplex PCR method and on
-				your sequencing protocol (if reads are or not already trimmed/clipped).</p>
-		{% endif %}
-		<!-- End length softwares to show -->
-		
-		<!--  Go back  function -->
+    <!-- store csrf token in DOM so JS can fetch it (avoid embedding token directly in JS) -->
+    <input type="hidden" id="id_csrf_token" value="{{ csrf_token }}" />
 
-		<div class="d-flex flex-wrap align-items-center">
-			</button>	
-			{% if project_settings %}
-				<br>
-				<a id="id_go_back_button" href="{% url 'projects' %}" class="btn btn-small btn-primary dark"><i class="fa fa-arrow-left"></i> Go back</a>	
-			{% elif project_sample_settings %}
-				<br>
-				<a id="id_go_back_button" href="{% url 'show-sample-project-results' project_sample.project.pk %}" class="btn btn-small btn-primary dark"><i class="fa fa-arrow-left"></i> Go back</a>
-			{% elif sample_settings %}
-				<br>
-				<a id="id_go_back_button" href="{% url 'samples' %}" class="btn btn-small btn-primary dark"><i class="fa fa-arrow-left"></i> Go back</a>
-			{% elif settings_pathogenid %}
-				<br> 
-				<a id="id_go_back_button" href="{% url 'settings-index' %}" class="btn btn-small btn-primary dark"><i class="fa fa-arrow-left"></i> Go back</a>
-			{% elif settings_pathid_project %}
-					{% if settings_pathid_sample %}
-						<br> 
-						<a id="id_go_back_button" href="{% url 'sample_references_management' sample_id %}" class="btn btn-small btn-primary dark"><i class="fa fa-arrow-left"></i> Go back</a>
-					{% else %}
-						<br>
-						<button style="cursor:pointer;" class= "btn btn-small btn-primary">
-						<a id="reverse_button" ><i class="fa fa-arrow-left"></i> Go back</a>
-						</button>
-						<a id="id_go_back_button" href="{% url 'PIproject_samples' pk=project_id %}" class="btn btn-small btn-primary dark"><i class="fa fa-suitcase"></i> Project Page</a>	
+    {% if error_cant_see %}
+        <hr>
+        <p><strong>Project sample settings not available</strong></p>
+    {% else %}
+        
+        <!-- test if there's any software -->
+        {% if all_softwares|length == 0 %}
+            <hr>
+            <p class="insa-description-process" style="text-align: center;">There's no software to show</p>
+        {% else %}
+            <!-- Info settings -->
+            <hr>
+            {% if main_settings %}
+                <p class="insa-description-process" style="text-align: center;">Please choose <strong>your software settings</strong> 
+                    before uploading new samples to your account.</p>
+            {% else %}
+                <p class="insa-description-process" style="text-align: center;">Please choose <strong>your software settings</strong></p>
+            {% endif %}
+        
+            <!-- NAV tabs -->
+            <div >
+                <ul id="main_tab" class="nav nav-tabs p-0 justify-content-end justify-content-md-center" role="tablist">
+                    {% for technology_id, tech_name, vect_pipeline in all_softwares %}
+                        <li class="nav-item"><a class="nav-link fa fa-align-justify"
+                            href="#{{technology_id}}" role="tab" data-toggle="tab"
+                            index_main="{{forloop.counter0}}" number_indexes="{{all_softwares|length}}"> {{ tech_name }}</a></li>
+                    {% endfor %}
+                </ul>
+                
+                <div class="tab-content">
+                    {% for technology_id, tech_name, group_tables in all_softwares %}
+                        <div id="{{technology_id}}" role="tabpanel" class="tab-pane fade box-blue" style="background-color: #eaebff;">
+                            <div>
+                                <ul id="second_tab_{{forloop.counter0}}" number_groups="{{group_tables|length}}" 
+                                    class="second_tab nav nav-tabs p-0 justify-content-end justify-content-md-center" role="tablist">
+                                    {% for group_name, vect_pipeline in group_tables %}
+                                        <li class="nav-item"><a class="nav-link fa fa-align-justify" 
+                                            href="#{{group_name}}_{{forloop.parentloop.counter0}}_{{forloop.counter0}}" role="tab" data-toggle="tab" 
+                                            index_tech="{{forloop.parentloop.counter0}}" index_group="{{forloop.counter0}}" number_groups="{{group_tables|length}}"
+                                            > {{ group_name }}</a></li>
+                                    {% endfor %}
+                                </ul>
+                                <div class="tab-content">
+                                    {% for group_name, vect_pipeline in group_tables %}
+                                        <div id="{{group_name}}_{{forloop.parentloop.counter0}}_{{forloop.counter0}}" role="tabpanel" class="tab-pane fade box-blue">
+                                            <div>
+                                                <ul id="third_tab_{{forloop.parentloop.counter0}}_{{forloop.counter0}}" number_pipelines="{{vect_pipeline|length}}"
+                                                    class="nav nav-tabs p-0 justify-content-end justify-content-md-center" role="tablist">
+                                                    {% for unique_pipeline_id, pipeline_name, table in vect_pipeline %}
+                                                        <li class="nav-item"><a class="nav-link fa fa-align-justify" 
+                                                            href="#{{unique_pipeline_id}}" role="tab" data-toggle="tab" > {{ pipeline_name }}</a></li>
+                                                    {% endfor %}
+                                                </ul>
+                                                
+                                                <div class="tab-content">
+                                                    <!--  for each pipeline -->
+                                                    {% for unique_pipeline_id, pipeline_name, table in vect_pipeline %}
+                                                        <div id="{{unique_pipeline_id}}" role="tabpanel" class="tab-pane fade box-blue">
+                                                            <hr>
+                                                            <div class="table-responsive">  <!-- start table -->
+                                                                <table class="table table-hover table-bordered table-striped"{% if table.attrs %} {{ table.attrs.as_html }} {% endif %}>
+                                                                    {% block table.thead %}
+                                                                    <thead>                 
+                                                                        <tr class="alert alert-primary">
+                                                                            <th colspan="7">
+                                                                                {% if project_settings %}
+                                                                                    <div class="header-software-settings">Software parameters for project: '{{project.name}}'</div>
+                                                                                {% elif project_sample_settings %}
+                                                                                    <div class="header-software-settings">Software parameters for project: '{{project_sample.project.name}}' and sample: '{{project_sample.sample.name}}'</div>
+                                                                                {% elif sample_settings %}
+                                                                                    <div class="header-software-settings">Software parameters for sample: '{{sample.name}}'</div>
+                                                                                {% else %}
+                                                                                    <div class="header-software-settings">Global software parameters</div>
+                                                                                {% endif %}
+                                                                            </th>                  
+                                                                        </tr>
+                                                                       
+                                                                        <tr>
+                                                                            {% for column in table.columns %}
+                                                                                <th {{ column.attrs.th.as_html }}>{{ column.header }}</th>
+                                                                            {% endfor %}
+                                                                        </tr>
+                                                                    </thead>
+                                                                    {% endblock table.thead %}
+                                                                    {% block table.tbody %}
+                                                                    <tbody>
+                                                                        {% for row in table.page.object_list|default:table.rows %} {# support pagination #}
+                                                                            {% block table.tbody.row %}
+                                                                            <tr id="row_{{ row.record.id }}" class="{% cycle "odd" "even" %}">
+                                                                                {% for column, cell in row.items %}
+                                                                                    <td {{ column.attrs.td.as_html }}>{{ cell }}</td>
+                                                                                {% endfor %}
+                                                                            </tr>
+                                                                            {% endblock table.tbody.row %}
+                                                                                {% empty %}
+                                                                                {% if table.empty_text %}
+                                                                                    {% block table.tbody.empty_text %}
+                                                                                        <tr><td colspan="{{ table.columns|length }}">{{ table.empty_text }}</td></tr>
+                                                                                    {% endblock table.tbody.empty_text %}
+                                                                                {% endif %}
+                                                                        {% endfor %}
+                                                                    </tbody>
+                                                                    {% endblock table.tbody %}
+                                                                    {% block table.tfoot %}
+                                                                        <tfoot></tfoot>
+                                                                    {% endblock table.tfoot %}
+                                                                </table>
+                                                            </div>	<!-- end table -->
+                                                        </div>	<!-- end tabpanel -->
+                                                    {% endfor %}
+                                                </div>
+                                            </div>	
+                                        </div>	<!-- end tabpanel -->
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>	<!-- robpanel -->
+                    {% endfor %}
+                </div>	<!-- tab-content -->
+            </div> <!-- container -->
+            
+            <br>
+            <p class="insa-description bg-insa-fixed-top" style=""><strong>Note:</strong> you should fit the parameters
+                to the conditions you are working with, e.g., default end’s trimming size for ONT may be
+                too restrictive depending on design of your tiling amplicon multiplex PCR method and on
+                your sequencing protocol (if reads are or not already trimmed/clipped).</p>
+        {% endif %}
+        <!-- End length softwares to show -->
+        
+        <!--  Go back  function -->
 
-						{% endif %}
-			{% endif %}
+        <div class="d-flex flex-wrap align-items-center">
+            </button>	
+            {% if settings_pathogenid %}
+                <br> 
+                <a id="id_go_back_button" href="{% url 'settings-index' %}" class="btn btn-small btn-primary dark"><i class="fa fa-arrow-left"></i> Go back</a>
 
+                <button class="btn btn-small btn-primary dark" style="margin-left: 10px;">
+                    <a href="#id_profile_tags_modal" id="id_profiles_link" class="text-white" data-toggle="modal" data-toggle="tooltip" title="Global Settings Profiles">
+                        <i class="fa fa-tag"></i>  Settings Profiles
+                    </a>
+                </button>
 
-			<button class="btn btn-small btn-primary dark" style="margin-left: 10px;">
-				<a href="#id_profile_tags_modal" id="id_project_tags_link" class="text-white" data-toggle="modal" data-toggle="tooltip" title="User Tags">
-					<i class="fa fa-tag"></i>  Settings Profiles
-				</a>
-			</button>
+                {% elif settings_pathid_project %}
+                <br>
+                <button style="cursor:pointer;" class= "btn btn-small btn-primary">
+                <a id="reverse_button" ><i class="fa fa-arrow-left"></i> Go back</a>
+                </button>
 
-		</div>
+                <button class="btn btn-small btn-primary dark" style="margin-left: 10px;">
+                    <a href="#id_project_profile_tags_modal" id="id_tech_profiles_link" class="text-white" data-toggle="modal" data-toggle="tooltip" title="Available Profiles">
+                        <i class="fa fa-tag"></i>  Copy Profiles
+                    </a>
+                </button>
+
+                <a id="id_go_back_button"  style="margin-left: 10px;" href="{% url 'PIproject_samples' pk=project_id %}" class="btn btn-small btn-primary dark"><i class="fa fa-suitcase"></i> Project Page </a>	
+
+            {% endif %}
+        </div>
 
 
-		<!-- Set default Modal -->
-		<div class="modal fade" id="id_set_default_modal" >
-			<div class="modal-dialog">
-				<div class="modal-content">
+        <!-- Set default Modal -->
+        <div class="modal fade" id="id_set_default_modal" >
+            <div class="modal-dialog">
+                <div class="modal-content">
 	   
 	  					<!-- Modal Header -->
 	  					<div class="modal-header alert alert-warning">
@@ -373,6 +240,35 @@
 				</div>
 	 		</div>
 		</div>
+
+				<!-- The user tags modal -->
+		<div class="modal fade" id="id_project_profile_tags_modal">
+			<div class="modal-dialog modal-lg">
+				<div class="modal-content">
+
+					<!-- Modal Header -->
+					<div class="modal-header alert alert-warning">
+						<h4 class="modal-title-remove">Settings profiles</h4>
+						<button type="button" class="close" data-dismiss="modal">&times;</button>
+					</div>
+
+					<!-- Modal body -->
+					<div class="modal-body mw-100">
+						<div id="id-modal-body-tech-profiles-tags" copy-profile-url="{% url 'copy_televir_profile' %}" tech-profiles-url="{% url 'get_user_tech_profiles' %}">
+							<!-- grid container for profiles -->
+							<div class="profiles-grid" role="list" aria-label="Profiles list">
+								<!-- Profiles will be dynamically loaded here -->
+							</div>
+						</div>
+					</div>
+					<!-- Modal footer -->
+					<div class="modal-footer" id="id-modal-footer-remove">
+						<button id="id-close-project-profile-button" type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+					</div>
+				</div>
+			</div>
+		</div>
+
 		
 		<!-- The user tags modal -->
 		<div class="modal fade" id="id_profile_tags_modal">
@@ -423,7 +319,7 @@
 							<div class="form-group">
 								<label for="id_create_tag_technology">Technology (optional)</label>
 								<select id="id_create_tag_technology" class="form-control">
-									<option value="Illumina">Illumina</option>
+									<option value="Illumina/IonTorrent">Illumina</option>
 									<option value="ONT">Oxford Nanopore (ONT)</option>
 								</select>
 							</div>
@@ -442,22 +338,26 @@
 {% endblock content %}
 
 {% block js %}
-	{% load static %}
-		<script type="text/javascript" src="{% static 'js/settings/set-default-parameters.js' %}"></script>
-		<script type="text/javascript" src="{% static 'js/settings/turn-on-off-software.js' %}"></script>
-		<script type="text/javascript" src="{% static 'js/settings/mask_consensus.js' %}"></script>
-		<script type="text/javascript" src="{% static 'js/settings/set_nav_tab_televir.js' %}"></script>
-	
-	<script>
-	
-	/// set wait screen
-	$('#id_go_back_button').on('click', function(){
-		wait_screen();
-	});
-	$('#reverse_button').on('click', function(){
-		wait_screen();
-		window.history.back();
-	});
+    {% load static %}
+        <script type="text/javascript" src="{% static 'js/settings/set-default-parameters.js' %}"></script>
+        <script type="text/javascript" src="{% static 'js/settings/turn-on-off-software.js' %}"></script>
+        <script type="text/javascript" src="{% static 'js/settings/mask_consensus.js' %}"></script>
+        <script type="text/javascript" src="{% static 'js/settings/set_nav_tab_televir.js' %}"></script>
+    
+    <script>
+    // helper to read CSRF token from DOM
+    function getCsrfToken() {
+        return $('#id_csrf_token').val();
+    }
+
+    /// set wait screen
+    $('#id_go_back_button').on('click', function(){
+        wait_screen();
+    });
+    $('#reverse_button').on('click', function(){
+        wait_screen();
+        window.history.back();
+    });
 
     // ensure unblockUI when any modal is fully hidden (click outside, ESC, or close)
     $(document).on('hidden.bs.modal', '.modal', function () {
@@ -476,14 +376,96 @@
         // focus first field
         $('#id_create_tag_name').focus();
     });
-	
-	$(document).on("click", "#id_project_tags_link", function () {
+
+
+    $(document).on("click", "#id_tech_profiles_link", function () {
+        url = $('#id-modal-body-tech-profiles-tags').attr('tech-profiles-url');
+        $.ajax({
+            url: url,
+            method: "POST",
+            data: {
+                csrfmiddlewaretoken: getCsrfToken()
+            },
+            success: function (data) {
+                let profilesHtml = '';
+                data.user_profiles.forEach(profile => {
+                    const bg = profile.color || '#2f6bed';
+                    const textColor = getContrastColor(bg);
+                    profilesHtml += `
+                        <div class="profile-card" style="background-color: ${bg}; color: ${textColor};">
+                            <button class="copy-profile" data-tag-id="${profile.id}" title="Copy Profile">Copy</button>
+                            <div class="profile-info">
+                                <h6>${profile.name}</h6>
+                                <p class="mb-0">${profile.description || 'No description'}</p>
+                                <p class="mb-0" style="opacity:0.9; font-size:0.82rem;">technology: ${profile.technology || ''}</p>
+                            </div>
+                        </div>
+                    `;
+                });
+                $('#id-modal-body-tech-profiles-tags .profiles-grid').html(profilesHtml);
+            },
+            error: function (xhr, errmsg, err) {
+                alert(errmsg);
+                console.log(xhr.status + ": " + xhr.responseText);
+            }
+        });
+    });
+
+    // copy profile function
+    $(document).on("click", ".copy-profile", function () {
+        let tagId = $(this).data('tag-id');
+
+        // confirm before proceeding
+        if (!confirm('Are you sure you want to copy this profile?')) {
+            return;
+        }
+
+        copy_url = $('#id-modal-body-tech-profiles-tags').attr('copy-profile-url') || '';
+        // ensure trailing slash to avoid POST -> 301 -> GET problems
+        project_id = '{{ project_id }}';
+
+        $.ajax({
+            url: copy_url,
+            type: "POST",
+            data: {
+                csrfmiddlewaretoken: getCsrfToken(),
+                profile_id: tagId,
+                project_id: project_id
+            },
+            success: function (data) {
+                if (data && data["is_ok"]) {
+                    // smoother refresh: hide modal, show a small transient success banner,
+                    // then reload after the modal close animation (avoid blocking alert())
+                    $('#id_project_profile_tags_modal').modal('hide');
+
+                    // transient non-blocking notice
+                    var $note = $('<div class="alert alert-success" role="alert" style="position:fixed;top:16px;right:16px;z-index:2100;padding:8px 12px;border-radius:6px;">Profile copied</div>');
+                    $('body').append($note);
+
+                    // allow the modal hide animation to finish, then reload
+                    setTimeout(function () {
+                        $note.fadeOut(220, function () { $(this).remove(); location.reload(); });
+                    }, 600);
+                } else {
+                    alert(data && (data.error || data.message) ? (data.error || data.message) : 'Could not copy profile.');
+                }
+            },
+            error: function (xhr, errmsg, err) {
+                console.error('Error copying profile:', xhr.status, xhr.responseText);
+                alert('Error copying profile: ' + (xhr.statusText || errmsg));
+            }
+        });
+    });
+
+
+    
+    $(document).on("click", "#id_profiles_link", function () {
          url = $('#id-modal-body-profiles-tags').attr('user-profiles-url');
 		$.ajax({
 			url: url,
 			method: "POST",
 			data: {
-				csrfmiddlewaretoken: '{{ csrf_token }}'
+				csrfmiddlewaretoken: getCsrfToken()
 			},
 			success: function (data) {
 				let profilesHtml = '';
@@ -510,13 +492,13 @@
 		});
 	});
 
-	// helper to refresh tag list (used after creating a new tag)
-	function refreshTags() {
-		let url = $('#id-modal-body-profiles-tags').attr('user-profiles-url');
-		$.ajax({
-			url: url,
-			method: "POST",
-			data: { csrfmiddlewaretoken: '{{ csrf_token }}' },
+    // helper to refresh tag list (used after creating a new tag)
+    function refreshTags() {
+        let url = $('#id-modal-body-profiles-tags').attr('user-profiles-url');
+        $.ajax({
+            url: url,
+            method: "POST",
+            data: { csrfmiddlewaretoken: getCsrfToken() },
             success: function (data) {
                 let profilesHtml = '';
                 data.user_profiles.forEach(profile => {
@@ -534,26 +516,31 @@
                 `;
                 });
                 $('#id-modal-body-profiles-tags .profiles-grid').html(profilesHtml);
-			},
-			error: function (xhr, errmsg, err) {
-				alert(errmsg);
-			}
-		});
-	}
+            },
+            error: function (xhr, errmsg, err) {
+                alert(errmsg);
+            }
+        });
+    }
 
     // delete profile function
-    $(document).on("click", ".delete-profile", function () {
-        let tagId = $(this).data('tag-id');
-        let deleteUrl = $('#id-new-tag-button').attr('delete-profile-url') || '';
-        // ensure trailing slash to avoid POST -> 301 -> GET problems
-        if (deleteUrl && !deleteUrl.endsWith('/')) deleteUrl = deleteUrl + '/';
-        console.log('Deleting profile with ID:', tagId, 'using URL:', deleteUrl);
-		csrf_token = '{{ csrf_token }}';
-		console.log('CSRF token:', csrf_token);
-        if (!deleteUrl) {
-            alert('Delete URL not found.');
-            return;
-        }
+	$(document).on("click", ".delete-profile", function () {
+		let tagId = $(this).data('tag-id');
+
+		// confirm before proceeding
+		if (!confirm('Are you sure you want to delete this profile?')) {
+			return;
+		}
+
+		let deleteUrl = $('#id-new-tag-button').attr('delete-profile-url') || '';
+		// ensure trailing slash to avoid POST -> 301 -> GET problems
+		if (deleteUrl && !deleteUrl.endsWith('/')) deleteUrl = deleteUrl + '/';
+		const csrf_token = getCsrfToken();
+
+		if (!deleteUrl) {
+			alert('Delete URL not found.');
+			return;
+		}
 
 		$.ajax({
 			url: deleteUrl,
@@ -563,10 +550,10 @@
 				profile_id: tagId
 			},
 			success: function (data) {
-				if (data["is_ok"]) {
+				if (data && data["is_ok"]) {
 					refreshTags();
 				} else {
-					alert(data.error || data.message || 'Could not delete profile.');
+					alert(data && (data.error || data.message) ? (data.error || data.message) : 'Could not delete profile.');
 				}
 			},
 			error: function (xhr, errmsg, err) {
@@ -608,40 +595,11 @@
 
     // when create modal is shown, force-enable inputs and fix stacking issues
     $('#id_create_tag_modal').off('shown.bs.modal.fixInputs').on('shown.bs.modal.fixInputs', function () {
-        console.log('Create-tag modal shown: fixing inputs and overlays');
-		
-		// remove common blocking overlays (jQuery.blockUI, custom wait screen, stray backdrops)
-        try { if (typeof unblockUI === 'function') unblockUI(); } catch (e) { /* ignore */ }
-        $('.blockUI, .blockOverlay, #wait-screen, .wait-screen-overlay').remove();
-        $('.modal-backdrop').remove();
-
-        // ensure no body-level block classes remain
-        $('body').removeClass('blocked-ui').css('overflow', '');
-
-        // ensure no leftover backdrops are covering the modal
-        $('.modal-backdrop').css('z-index', 1050);
-
-        // bring modal on top and allow interactions
-        $(this).css({'z-index': 1060, 'pointer-events': 'auto'});
-
-        // enable inputs (works even if form HTML can't be edited)
-        $('#id_create_tag_name, #id_create_tag_description, #id_create_tag_technology').each(function () {
-            $(this).prop('disabled', false).prop('readonly', false).removeAttr('disabled').removeAttr('readonly').removeClass('disabled').css('pointer-events', 'auto');
-        });
-
-        // also enable dialog children
-        $('#id_create_tag_modal .modal-dialog, #id_create_tag_modal input, #id_create_tag_modal textarea, #id_create_tag_modal select, #id_create_tag_modal button')
-            .css('pointer-events', 'auto').prop('disabled', false);
-
-        // debug helper
-        console.log('Create-tag modal shown: removed overlays and enabled inputs');
-
-        // focus first field
         $('#id_create_tag_name').focus();
     });
 
-	// submit create tag form via AJAX
-	$(document).on("click", "#id-create-tag-submit", function () {
+    // submit create tag form via AJAX
+    $(document).on("click", "#id-create-tag-submit", function () {
 
 		let createTagUrl = $('#id-new-tag-button').attr('create-new-tag-url');
 		let name = $('#id_create_tag_name').val().trim();
@@ -657,7 +615,7 @@
 			url: createTagUrl,
 			method: "POST",
 			data: {
-				csrfmiddlewaretoken: '{{ csrf_token }}',
+				csrfmiddlewaretoken: getCsrfToken(),
 				name: name,
 				description: description,
 				technology_name: technology
@@ -677,19 +635,19 @@
 		});
 	});
 
-	// helper: contrast color (white or black) for readability over background color
-	function getContrastColor(hex) {
-		if (!hex) return '#fff';
-		hex = ('' + hex).replace('#', '');
-		if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
-		if (hex.length !== 6) return '#fff';
-		const r = parseInt(hex.substr(0, 2), 16);
-		const g = parseInt(hex.substr(2, 2), 16);
-		const b = parseInt(hex.substr(4, 2), 16);
-		const yiq = (r * 299 + g * 587 + b * 114) / 1000;
-		return yiq >= 128 ? '#000' : '#fff';
-	}
-	
-	</script>
-	
+    // helper: contrast color (white or black) for readability over background color
+    function getContrastColor(hex) {
+        if (!hex) return '#fff';
+        hex = ('' + hex).replace('#', '');
+        if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+        if (hex.length !== 6) return '#fff';
+        const r = parseInt(hex.substr(0, 2), 16);
+        const g = parseInt(hex.substr(2, 2), 16);
+        const b = parseInt(hex.substr(4, 2), 16);
+        const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+        return yiq >= 128 ? '#000' : '#fff';
+    }
+    
+    </script>
+    
 {% endblock %}
