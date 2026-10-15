@@ -357,6 +357,49 @@ class Utility_Repository:
             f"INSERT INTO software (name, path, database, installed, env_path, date) VALUES ('{item.name}', '{item.path}', '{item.database}', '{item.installed}', '{item.env_path}', '{item.date}')"
         )
 
+    DATABASE_COLUMNS = (
+        "name", "db_category", "db_name", "db_type", "path", "installed",
+        "software", "date", "version", "source_url", "file_mod_date", "description",
+    )
+
+    def upsert_database(self, record: dict) -> None:
+        """
+        Insert a database record, replacing any existing row with the same name.
+        Runs in one transaction with bound parameters.
+        Missing keys are stored as NULL.
+        """
+        if not record.get("name"):
+            raise ValueError("database record needs a name")
+
+        values = {col: record.get(col) for col in self.DATABASE_COLUMNS}
+        placeholders = ", ".join(f":{col}" for col in self.DATABASE_COLUMNS)
+        columns = ", ".join(self.DATABASE_COLUMNS)
+
+        # replace only the same name within the same category, so other
+        # categories that reuse a name are never touched
+        if values["db_category"] is None:
+            scope = "db_category IS NULL"
+            scope_params = {}
+        else:
+            scope = "db_category = :db_category"
+            scope_params = {"db_category": values["db_category"]}
+
+        with self.engine.begin() as conn:
+            conn.execute(
+                text(
+                    f"DELETE FROM {self.DATABASE_TABLE_NAME} "
+                    f"WHERE name = :name AND {scope}"
+                ),
+                {"name": values["name"], **scope_params},
+            )
+            conn.execute(
+                text(
+                    f"INSERT INTO {self.DATABASE_TABLE_NAME} ({columns}) "
+                    f"VALUES ({placeholders})"
+                ),
+                values,
+            )
+
     @abstractmethod
     def add_database(self, item: database_item):
         """

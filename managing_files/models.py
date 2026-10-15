@@ -1995,6 +1995,12 @@ class ProcessControler(models.Model):
     def get_name_televir_reference_update(self, user_pk):
         return "televir_reference_update_{}".format(user_pk)
 
+    def get_name_build_centrifuge_db(self, user_pk):
+        return "build_centrifuge_db_{}".format(user_pk)
+
+    def get_name_build_kraken2_db(self, user_pk):
+        return "build_kraken2_db_{}".format(user_pk)
+
     def get_name_televir_project_sample(self, batch_pk, sample_pk):
         return "{}{}_sample_{}".format(
             ProcessControler.PREFIX_TELEVIR_RUN_BATCH, batch_pk, sample_pk
