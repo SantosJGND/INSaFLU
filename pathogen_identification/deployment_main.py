@@ -19,7 +19,7 @@ from pathogen_identification.modules.object_classes import Remap_Target
 from pathogen_identification.modules.run_main import RunMainTree_class
 from pathogen_identification.utilities.televir_parameters import \
     TelevirParameters
-from pathogen_identification.utilities.update_DBs import (
+from pathogen_identification.utilities.update_DBs_tree import (
     Update_Assembly, Update_Classification, Update_Metagenomics, Update_Remap,
     Update_RunMain_Initial, Update_RunMain_Secondary, get_run_parents)
 from pathogen_identification.utilities.utilities_general import \
@@ -365,7 +365,7 @@ class Run_Main_from_Leaf:
         self.pipeline_leaf = pipeline_leaf
         self.pipeline_tree = pipeline_tree
         ########################################
-        prefix = f"{simplify_name_lower(input_data.name)}_run{pipeline_leaf.index}"
+        prefix = f"{simplify_name_lower(input_data.name)}_r{pipeline_leaf.id_str}"
         self.date_submitted = datetime.datetime.now()
 
         self.technology = input_data.sample.get_type_technology()
@@ -556,12 +556,15 @@ class Run_Main_from_Leaf:
 
             self.container.run_engine.Prep_deploy()
             self.container.run_engine.Run_QC()
-            db_updated = Update_RunMain_Initial(
+            db_updated, run_main = Update_RunMain_Initial(
                 self.container.run_engine, self.parameter_set
             )
-            self.register_running()
-            if not db_updated:
+            if not db_updated or run_main is None:
                 return False
+            
+            self.container.run_engine.update_run_main(run_main)
+            self.register_running()
+
         except Exception as e:
             print(traceback.format_exc())
             print(e)

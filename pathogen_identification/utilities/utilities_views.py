@@ -39,6 +39,8 @@ from settings.constants_settings import ConstantsSettings
 from settings.models import Parameter, Software
 
 
+
+
 class QCSoftware:
     """
     Class to manage QC software
@@ -478,6 +480,7 @@ class SampleReadsRetrieve:
 
 
 class SampleReferenceManager:
+    
     def __init__(self, sample: PIProject_Sample):
         self.sample = sample
         self.software_tree: SoftwareTree = self.proxy_tree_prepare()
@@ -485,36 +488,96 @@ class SampleReferenceManager:
             self.proxy_leaf_prepare()
         )
         self.prep_storage()
+
+
+    @staticmethod
+    def aggregate_report_taxa(sample) -> list:
+        latest_report_aggregate = ReportAggregate.objects.filter(
+            sample=sample, run=None
+        ).order_by("-date_created").first()
+
+        if latest_report_aggregate is None:
+            latest_report_aggregate = ReportAggregateEmpty()    
+            report_groups = ReportGroup.objects.none()
+        else:
+            report_groups = ReportGroup.objects.filter(
+                aggregator=latest_report_aggregate
+            )
+
+        sorted_reports = {
+            report_group: ReportList(list(report_group.reports.all())).fetch_report_data(report_group).sort_group_by_private_reads()
+            for report_group in report_groups
+        }
+
+        reported_taxa = {
+            report_group: report_group.main_species for report_group in report_groups
+        }
+
+        # group reports by main species and sort by private reads availability
+        report_taxa = {
+            species: {
+                "species": species,
+                "report_groups": {
+                    rg: sorted_reports[rg] for rg in report_groups if rg.main_species == species
+                },
+                "total_private_counts": sum(
+                    rg.private_counts_safe for rg in report_groups if rg.main_species == species
+                )
+            }
+            for species in set(reported_taxa.values()) if species is not None
+        }
     
-    def control_references_to_map(self, run: RunMain) -> QuerySet[RawReference]:
-        """
-        get references to map
-        """
-        ### References in this project in general
-        references = RawReference.objects.filter(
-            run__project = run.project,
-        )
+        if latest_report_aggregate.overlap_heatmap_path is not None:
+            group_map = {}
 
-        ### already mapped in control (to exclude)
-        references_control_mapped = references.filter(
-            run__project__sample__in = run.controls.all(),
-            status__in = [RawReference.STATUS_MAPPED, RawReference.STATUS_MAPPING],
-        ).distinct("accid", "taxid").values_list("taxid", flat=True)
+            for taxon_report in report_taxa.values():
+                for gp in taxon_report["report_groups"].keys():
+                    group_map[gp.name] = taxon_report['species']
+                taxon_report['taxon_heatmap_json'] = []
+            
+            if latest_report_aggregate.overlap_heatmap_json is not None:
+                for cell in latest_report_aggregate.overlap_heatmap_json:
+                    if group_map.get(cell['x']) == group_map.get(cell['y']):
+                        taxon = group_map.get(cell['x'])
+                        if taxon is None:
+                            continue
+                        report_taxa[taxon]['taxon_heatmap_json'].append(cell)
+            
+            for taxon_report in report_taxa.values():
+                if len(taxon_report['taxon_heatmap_json']) == 0 or len(taxon_report['report_groups']) == 1:
+                    taxon_report['taxon_heatmap_json'] = None
+                else:
+                    taxon_report['taxon_heatmap_json'] = json.dumps(taxon_report['taxon_heatmap_json'])
 
-        ### Mapped only in samples
-        references_control_unmapped= references.exclude(
-            run__project__sample__in = run.controls.all(),
-        )
-        ### Filter for mapped or mapping and filter out those already mapped in control
-        references_control_unmapped = references_control_unmapped.filter(
-            status__in = [RawReference.STATUS_MAPPED, RawReference.STATUS_MAPPING],
-        ).distinct("accid", "taxid")
+        report_taxa = list(report_taxa.values())
+        for taxon_report in report_taxa:
+            taxon_report['any_in_control'] = any(
+                report.control_flag == FinalReport.CONTROL_FLAG_PRESENT for report_list in taxon_report['report_groups'].values() for report in report_list
+            )
 
-        references_control_unmapped = references_control_unmapped.exclude(
-            taxid__in = references_control_mapped,
-        ).distinct("accid", "taxid")
+        if any(species is None for species in reported_taxa.values()):
+            unassigned = {
+                "species": {"name": "Unassigned", "taxid": None},
+                "report_groups": {
+                    rg: sorted_reports[rg] for rg in report_groups if rg.main_species is None
+                },
+                "total_private_counts": sum(
+                    rg.private_counts_safe for rg in report_groups if rg.main_species is None
+                ),
+                "any_in_control": False
+            }
+            unassigned["any_in_control"] = all(
+                report.control_flag == FinalReport.CONTROL_FLAG_PRESENT for report_list in unassigned['report_groups'].values() for report in report_list
+            )
+            report_taxa.append(unassigned)
+        
+        report_taxa = sorted(report_taxa, key=lambda x: len(x["report_groups"]), reverse=True)
+        report_taxa = sorted(report_taxa, key=lambda x: x["total_private_counts"], reverse=True)
 
-        return references_control_unmapped
+
+        return report_taxa
+    
+
 
     def add_reference(self, reference: ReferenceSourceFileMap):
         ref_description = reference.description
@@ -585,7 +648,7 @@ class SampleReferenceManager:
 
         except SoftwareTreeNode.DoesNotExist:
             software_tree_node = SoftwareTreeNode.objects.create(
-                index=-1,
+                tree_index=-1,
                 software_tree=self.software_tree,
                 name="storage",
                 parent=None,
@@ -746,6 +809,10 @@ class SampleReferenceManager:
 
         return mapping_run
 
+    def control_mapping_run_from_leaf(self, leaf: SoftwareTreeNode) -> RunMain:
+        """ """
+        return self.create_mapping_run(leaf, RunMain.RUN_TYPE_CONTROL_MAPPING)
+
     def mapping_run_from_leaf(self, leaf: SoftwareTreeNode) -> RunMain:
         """ """
         return self.create_mapping_run(leaf, RunMain.RUN_TYPE_COMBINED_MAPPING)
@@ -771,7 +838,7 @@ class RunMainWrapper:
 
     def __init__(self, run: RunMain):
 
-        self.name = f"run {run.parameter_set.leaf.index}"
+        self.name = f"run {run.parameter_set.leaf.id_str}"
 
         self.record = run
         self.user = run.project.owner
@@ -1079,7 +1146,7 @@ class FinalReportCompound:
 
         for ref in references_found_in:
 
-            index_string = f"{ref.run.parameter_set.leaf.software_tree.global_index}-{ref.run.parameter_set.leaf.index}"
+            index_string = f"{ref.run.parameter_set.leaf.software_tree.global_index}-{ref.run.parameter_set.leaf.id_str}"
 
             if ref.run.run_type in [
                 RunMain.RUN_TYPE_MAP_REQUEST,
@@ -1427,6 +1494,14 @@ class ReportAggregateEmpty:
     @property
     def n_reports_analyzed(self):
         return 0
+    
+    @property
+    def report_groups(self):
+        return ReportGroup.objects.none()
+
+    @property
+    def private_reads_available(self):
+        return False
 
 
 class ReportSorter:
@@ -1898,7 +1973,7 @@ class ReportSorter:
                 max_mapped_proportion = self.max_mapped_prop,
                 max_coverage = self.max_coverage,
                 max_windows_covered = self.max_windows_covered,
-                shared_proportion_threshold = report_layout_params.shared_proportion_threshold,
+                _shared_proportion_threshold = report_layout_params.shared_proportion_threshold,
                 tree_plot_path = self.tree_plot_path,
                 tree_plot_exists = self.tree_plot_exists,
                 overlap_heatmap_path = self.overlap_heatmap_path,
@@ -2493,7 +2568,7 @@ class RawReferenceCompound:
 
     @property
     def runs_str(self):
-        return ", ".join([str(r.parameter_set.leaf.index) for r in self.runs])
+        return ", ".join([str(r.parameter_set.leaf.id_str) for r in self.runs])
 
 
 class RawReferenceUtils:

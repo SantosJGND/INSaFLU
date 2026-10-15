@@ -34,29 +34,33 @@ urlpatterns = [
         views.UpdateParametersTelevirProjView.as_view(),
         name="software-televir-project-update",
     ),
-    path("", views.index.as_view(), name="settings-index"),
-    re_path(r"set_quality", views.QCSettingsView.as_view(), name="settings_qc"),
-    path("403/", views.Maintenance.as_view(), name="under_construction"),
-    re_path(r"settings", views.SettingsView.as_view(), name="settings"),
+
+    path("set_quality", views.QCSettingsView.as_view(), name="settings_qc"),
+    path("settings", views.SettingsView.as_view(), name="settings"),
     path(
         "software_update/<int:pk>",
         views.UpdateParametersView.as_view(),
         name="software-update",
     ),
     path(
-        "software_project_update/soft_<int:pk>/proj_<int:pk_proj>",
+        r"software_project_update/soft_<int:pk>/proj_<int:pk_proj>",
         views.UpdateParametersProjView.as_view(),
         name="software-project-update",
     ),
     path(
-        "software_project_sample_update/soft_<int:pk>/proj_sample_<int:pk_proj_sample>",
+        r"software_project_sample_update/soft_<int:pk>/proj_sample_<int:pk_proj_sample>",
         views.UpdateParametersProjSampleView.as_view(),
         name="software-project-sample-update",
     ),
     path(
-        "software_sample_update/soft_<int:pk>/sample_<int:pk_sample>",
+        r"software_sample_update/soft_<int:pk>/sample_<int:pk_sample>",
         views.UpdateParametersSampleView.as_view(),
         name="software-sample-update",
+    ),
+    path(
+        "ajax/delete_televir_settings_profile/",
+        ajax_views.delete_user_televir_profile, 
+        name="delete_profile"
     ),
     path(
         "ajax/default_parameters",
@@ -86,4 +90,26 @@ urlpatterns = [
         ajax_views.get_software_name_to_turn_on_off,
         name="get_software_name_to_turn_on_off",
     ),  ## message to toggle on/off software
+    path(
+        "ajax/get_user_profiles", 
+        ajax_views.get_user_televir_profiles_all, 
+        name="get_user_profiles"
+    ),
+    path(
+        "ajax/get_user_tech_profiles",
+        ajax_views.get_user_televir_profiles_technology,
+        name="get_user_tech_profiles",
+    ),
+    path(
+        "ajax/create_new_profile", 
+        ajax_views.create_user_televir_profile, 
+        name="create_new_profile"
+    ),
+    path(
+        "ajax/copy_profile", 
+        ajax_views.copy_user_televir_profile, 
+        name="copy_televir_profile"
+    ),
+    path("", views.index.as_view(), name="settings-index"),
+    path("403/", views.Maintenance.as_view(), name="under_construction"),
 ]

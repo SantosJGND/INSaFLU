@@ -297,27 +297,25 @@ $("#deploypi_controls_btn").click(function (e) {
     var user_id = $('#deploypi_btn').attr('user-id');
     var project_id = $('#deploypi_btn').attr('project-id');
     csrf_token = $('#teleflu_create-button').attr("csrf");
+    var url = $('#deploypi_controls_btn').attr("deploy-url");
 
-    // get checked samples rows
-    var remember = document.getElementById('checkBoxAll');
-    
+    // get checked samples rows    
     $.ajax({
-        url: $('#deploypi_controls_btn').attr("deploy-url"),
+        url: url,
         type: "POST",
         data: {
             'csrfmiddlewaretoken': csrf_token,
             'id': $(this).attr('id'),
             'user_id': user_id,
             'project_id': project_id,
-            'check_box_all': remember.checked,
         },
         data_type: 'json',
         success: function (data) {
+
             if (data["is_ok"] == true && data["is_deployed"] == false) {
                 alert(data["message"]);
             }
-            else if (data["is_ok"] == true && data["is_deployed"] == true) {
-                var how_many = data["samples_deployed"];
+            else if (data["is_ok"] == true && data["is_deployed"] == true) {                
                 alert(data["message"]);
             }
             $.unblockUI();
@@ -347,6 +345,7 @@ $("#deploypi_panels_btn").click(function (e) {
         },
         data_type: 'json',
         success: function (data) {
+
             if (data["is_ok"] == true && data["is_deployed"] == false) {
                 alert(data["message"]);
             }

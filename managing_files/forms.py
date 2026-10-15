@@ -1712,25 +1712,4 @@ class SamplesUploadMultipleFastqForm(forms.ModelForm):
 
         os.unlink(temp_file_name.name)
         return cleaned_data
-        if settings.DOWN_SIZE_FASTQ_FILES:
-            if path_name.size > settings.MAX_FASTQ_FILE_WITH_DOWNSIZE:
-                os.unlink(temp_file_name.name)
-                self.add_error(
-                    "path_name",
-                    "Max file size is: {}".format(
-                        filesizeformat(int(settings.MAX_FASTQ_FILE_WITH_DOWNSIZE))
-                    ),
-                )
-                return cleaned_data
-        elif path_name.size > settings.MAX_FASTQ_FILE_UPLOAD:
-            os.unlink(temp_file_name.name)
-            self.add_error(
-                "path_name",
-                "Max file size is: {}".format(
-                    filesizeformat(int(settings.MAX_FASTQ_FILE_UPLOAD))
-                ),
-            )
-            return cleaned_data
 
-        os.unlink(temp_file_name.name)
-        return cleaned_data

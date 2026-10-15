@@ -184,13 +184,9 @@ class PIMetagenSampleView(BaseBreadcrumbMixin, LoginRequiredMixin, ListView):
             context["settings_pathid_project"] = True  ## True for project softwares
             context["project_name"] = televir_project.name
             context["project_id"] = televir_project.pk
+            context["technology"] = televir_project.technology
         else:
             context["settings_pathogenid"] = True
-
-        if sample is not None:
-            context["settings_pathid_sample"] = True
-            context["sample_name"] = sample.name
-            context["sample_id"] = sample.pk
 
         context["show_info_main_page"] = (
             ShowInfoMainPage()
@@ -398,7 +394,6 @@ class PISettingsView(BaseBreadcrumbMixin, LoginRequiredMixin, ListView):
             self.request.user
         )  ## the user can have defaults yet
         ### project parameters
-        print(televir_project)
         if televir_project:
             # if not self.check_project_params_exist(televir_project):
             software_primed = self.check_project_params_exist(televir_project)
@@ -418,10 +413,10 @@ class PISettingsView(BaseBreadcrumbMixin, LoginRequiredMixin, ListView):
                     screening=False,
                     mapping_only=True,
                 )
-                _ = software_utils.get_sample_pathnodes(
-                    screening=True,
-                    mapping_only=False,
-                )
+                #_ = software_utils.get_sample_pathnodes(
+                #    screening=True,
+                #    mapping_only=False,
+                #)
                 _ = software_utils.get_sample_pathnodes(
                     screening=False,
                     mapping_only=False,
@@ -553,7 +548,6 @@ class PISettingsGroupsView(PISettingsView):
             self.update_software_params_global_project(televir_project)
 
             technologies = [televir_project.technology]
-            print(software_primed)
             if software_primed == False:
                 from pathogen_identification.utilities.utilities_pipeline import \
                     SoftwareTreeUtils
@@ -564,10 +558,10 @@ class PISettingsGroupsView(PISettingsView):
                     screening=False,
                     mapping_only=True,
                 )
-                _ = software_utils.get_sample_pathnodes(
-                    screening=True,
-                    mapping_only=False,
-                )
+                #_ = software_utils.get_sample_pathnodes(
+                #    screening=True,
+                #    mapping_only=False,
+                #)
                 _ = software_utils.get_sample_pathnodes(
                     screening=False,
                     mapping_only=False,

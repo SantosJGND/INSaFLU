@@ -102,6 +102,8 @@ class Projects(models.Model):
         default=settings.APP_VERSION_NUMBER, max_length=10
     )
 
+    is_profile = models.BooleanField(default=False)
+
     @property
     def is_up_to_date(self):
         return packaging.version.parse(self.updated_version) >= packaging.version.parse(
@@ -129,6 +131,59 @@ class Projects(models.Model):
         project_samples = PIProject_Sample.objects.filter(project=self)
         samples = [project_sample.sample.pk for project_sample in project_samples]
         return samples
+    
+    @property
+    def render_queued_processes(self):
+        """
+        return number of queued processes in this project"""
+
+        queued = ParameterSet.objects.filter(
+            project=self, sample__sample__is_deleted=False, status=ParameterSet.STATUS_QUEUED
+        ).count()
+
+        mapping_runs = RunMain.objects.filter(
+            project=self,
+            run_type=RunMain.RUN_TYPE_MAP_REQUEST,
+            status=RunMain.STATUS_PREP,
+            parameter_set__status=ParameterSet.STATUS_PROXIED,
+        ).count()
+
+        queued += mapping_runs
+
+        return queued
+    
+
+    @property
+    def render_running_processes(self):
+        """
+        return number of running processes in this project"""
+
+        parameter_sets = ParameterSet.objects.filter(
+            project=self, sample__sample__is_deleted=False, status=ParameterSet.STATUS_RUNNING
+        ).count()
+        return parameter_sets
+    
+    @property
+    def render_finished_processes(self):
+        """
+        return number of finished processes in this project"""
+
+        parameter_sets = ParameterSet.objects.filter(
+            project=self, sample__sample__is_deleted=False, status=ParameterSet.STATUS_FINISHED
+        ).count()
+    
+        return parameter_sets
+
+    @property
+    def render_processes(self):
+        return (
+            f"{self.render_running_processes} / "
+            f"{self.render_queued_processes} / "
+            f"{self.render_finished_processes}"
+        )
+
+
+
 
 class ProjectTag(models.Model):
     name = models.CharField(max_length=100, db_index=True, blank=False, null=False)
@@ -189,6 +244,14 @@ class SoftwareTree(models.Model):
             self.pipeline_type = self.PIPELINE_TYPE_SCREENING
 
         self.save()
+    
+    @property 
+    def new_leaf_index(self):
+        leaves = SoftwareTreeNode.objects.filter(software_tree=self, node_place=SoftwareTreeNode.LEAF_node)
+        if not leaves.exists():
+            return 0
+        max_index = leaves.aggregate(models.Max('tree_index'))['tree_index__max']
+        return max_index + 1
 
 class SoftwareTreeNode(models.Model):
     INTERNAL_node = 0
@@ -196,7 +259,7 @@ class SoftwareTreeNode(models.Model):
     id = models.AutoField(primary_key=True)
 
     software_tree = models.ForeignKey(SoftwareTree, on_delete=models.CASCADE)
-    index = models.SmallIntegerField(default=-1)
+    tree_index = models.SmallIntegerField(default=-1)
     name = models.CharField(
         max_length=200,
         db_index=True,
@@ -234,6 +297,10 @@ class SoftwareTreeNode(models.Model):
     @property
     def is_leaf(self):
         return self.node_place == SoftwareTreeNode.LEAF_node
+
+    @property
+    def id_str(self):
+        return f"{self.software_tree.global_index}-{self.tree_index}"
     
     def get_descendants(self, include_self: bool = True):
         """return all descendants of this node"""
@@ -415,6 +482,56 @@ class PIProject_Sample(models.Model):
             return self.media_dir
         return None
 
+    @property
+    def render_queued_processes(self):
+        """
+        return number of queued processes in this project"""
+
+        queued = ParameterSet.objects.filter(
+            sample=self, sample__sample__is_deleted=False, status=ParameterSet.STATUS_QUEUED
+        ).count()
+
+        mapping_runs = RunMain.objects.filter(
+            sample=self,
+            run_type=RunMain.RUN_TYPE_MAP_REQUEST,
+            status=RunMain.STATUS_PREP,
+            parameter_set__status=ParameterSet.STATUS_PROXIED,
+        ).count()
+
+        queued += mapping_runs
+
+        return queued
+    
+
+    @property
+    def render_running_processes(self):
+        """
+        return number of running processes in this project"""
+
+        parameter_sets = ParameterSet.objects.filter(
+            sample=self, sample__sample__is_deleted=False, status=ParameterSet.STATUS_RUNNING
+        ).count()
+        return parameter_sets
+    
+    @property
+    def render_finished_processes(self):
+        """
+        return number of finished processes in this project"""
+
+        parameter_sets = ParameterSet.objects.filter(
+            sample=self, sample__sample__is_deleted=False, status=ParameterSet.STATUS_FINISHED
+        ).count()
+    
+        return parameter_sets
+
+    @property
+    def render_processes(self):
+        return (
+            f"{self.render_running_processes} / "
+            f"{self.render_queued_processes} / "
+            f"{self.render_finished_processes}"
+        )
+
 
 
 class SampleBatchRegister(models.Model):
@@ -494,7 +611,7 @@ class Submitted(models.Model):
     date_submitted = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return self.parameter_set.sample.name + " " + self.parameter_set.leaf.index
+        return self.parameter_set.sample.name + " " + self.parameter_set.leaf.id_str
 
 
 class Processed(models.Model):
@@ -502,7 +619,7 @@ class Processed(models.Model):
     date_processed = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return self.parameter_set.sample.name + " " + str(self.parameter_set.leaf.index)
+        return self.parameter_set.sample.name + " " + str(self.parameter_set.leaf.id_str)
 
 
 class SampleQC(models.Model):
@@ -1494,7 +1611,7 @@ class TelefluMapping(models.Model):
     @property
     def mapping_directory(self):
         return os.path.join(
-            self.teleflu_project.project_teleflu_directory, str(self.leaf.index)
+            self.teleflu_project.project_teleflu_directory, str(self.leaf.id_str)
         )
 
     @property
@@ -1504,7 +1621,7 @@ class TelefluMapping(models.Model):
     @property
     def variants_mapping_vcf(self):
         filename = (
-            f"teleflu_{self.leaf.index}_project_{self.teleflu_project.pk}_stacked.vcf"
+            f"teleflu_{self.leaf.id_str}_project_{self.teleflu_project.pk}_stacked.vcf"
         )
         return os.path.join(self.mapping_directory, filename)
 
@@ -1526,7 +1643,7 @@ class TelefluMapping(models.Model):
         refs = RawReference.objects.filter(
             run__parameter_set__sample__in=samples,
             accid__in=self.teleflu_project.raw_reference.accids,
-            run__parameter_set__leaf__index=self.leaf.index,
+            run__parameter_set__leaf__pk=self.leaf.pk,
             run__status__in=[
                 RunMain.STATUS_RUNNING,
                 RunMain.STATUS_PREP,
@@ -1547,7 +1664,7 @@ class TelefluMapping(models.Model):
         refs = RawReference.objects.filter(
             run__parameter_set__sample__in=samples,
             accid__in=accids,
-            run__parameter_set__leaf__index=self.leaf.index,
+            run__parameter_set__leaf__pk=self.leaf.pk,
             run__parameter_set__status=ParameterSet.STATUS_FINISHED,
             status=RawReference.STATUS_MAPPED,
         )
@@ -1585,7 +1702,7 @@ class TelefluMapping(models.Model):
 
             sample_summary[sample.name] = {
                 "reference": self.teleflu_project.raw_reference.description,
-                "leaf": self.leaf.index,
+                "leaf": self.leaf.id_str,
                 "mapped": False,
                 "success": False,
                 "coverage": "N/A",
@@ -1600,11 +1717,15 @@ class TelefluMapping(models.Model):
             success = False
 
             mapping_status = "Not started"
+            if self.leaf is None:
+                mapping_status = "No leaf selected"
+                sample_summary[sample.name]["mapped"] = mapping_status
+                continue
 
             refs_all = RawReference.objects.filter(
                 Q(accid__in=accids)
                 & Q(run__parameter_set__sample=sample)
-                & Q(run__parameter_set__leaf__index=self.leaf.index)
+                & Q(run__parameter_set__leaf__pk=self.leaf.pk)
                 & Q(status=RawReference.STATUS_MAPPED)
             ).distinct()
 
@@ -1620,7 +1741,7 @@ class TelefluMapping(models.Model):
 
             reports = FinalReport.objects.filter(
                 run__parameter_set__sample=sample,
-                run__parameter_set__leaf__index=self.leaf.index,
+                run__parameter_set__leaf__pk=self.leaf.pk,
                 unique_id__in=accids,
             )
 
@@ -2216,7 +2337,7 @@ class ReportAggregate(models.Model):
     max_coverage = models.FloatField(blank=True, null=True)
     max_windows_covered = models.FloatField(blank=True, null=True)
 
-    shared_proportion_threshold = models.FloatField(blank=True, null=True)
+    _shared_proportion_threshold = models.FloatField(blank=True, null=True)
     tree_plot_path = models.CharField(max_length=200, blank=True, null=True)
     tree_plot_exists = models.BooleanField(default=False)
 
@@ -2231,17 +2352,38 @@ class ReportAggregate(models.Model):
     sort_performed = models.BooleanField(default=False)
 
     @property
+    def report_groups(self):
+        return ReportGroup.objects.filter(aggregator=self)
+    
+    @property
+    def shared_proportion_threshold(self):
+        if self._shared_proportion_threshold is None:
+            return 0.5
+        return self._shared_proportion_threshold
+
+    @property
     def reports_analyzed(self):
         return [
             report for group in self.report_groups.all() for report in group.reports.all()
         ]
-
 
     @property
     def n_reports_analyzed(self):
         return sum(
             group.reports.all().count() for group in self.report_groups.all()
         )
+    
+    @property
+    def private_reads_available(self):
+        return any(
+            group.private_reads_available for group in self.report_groups.all()
+        )
+
+    @property
+    def clade_heatmap_json(self):
+        import json
+        return json.dumps(self.overlap_heatmap_json) if self.overlap_heatmap_path else None
+
 
 from dataclasses import dataclass
 @dataclass
@@ -2386,7 +2528,7 @@ class RawReferenceCompoundModel(models.Model):
             return ""
         else:
             return ", ".join(
-                [str(run.parameter_set.leaf.index) for run in self.runs.all()]
+                [str(run.parameter_set.leaf.tree_index) for run in self.runs.all()]
             )
 
 

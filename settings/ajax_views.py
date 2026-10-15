@@ -5,7 +5,7 @@ Created on Dec 6, 2017
 """
 
 from typing import Optional
-
+import traceback
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt, csrf_protect
 from constants.constants import Constants
@@ -23,18 +23,22 @@ from settings.constants_settings import ConstantsSettings
 from settings.default_parameters import DefaultParameters
 from settings.default_software import DefaultSoftware
 from settings.default_software_project_sample import DefaultProjectSoftware
-from settings.models import Parameter, Software
+from settings.models import Parameter, Software, TelevirProjectProfile
 from utils.process_SGE import ProcessSched
 from utils.result import DecodeObjects, MaskingConsensus
-
+from django.db.models import Q
+from django.views.decorators.http import require_POST
+from django.contrib.auth.decorators import login_required
+import random
 
 @csrf_protect
 def set_default_parameters(request):
     """
     remove a reference. It can only be removed if not belongs to any deleted project
     """
+    data = {"is_ok": False}
     if request.headers.get("x-requested-with") == "XMLHttpRequest":
-        data = {"is_ok": False}
+        
         software_id_a = "software_id"
         project_id_a = "project_id"
         project_sample_id_a = "project_sample_id"
@@ -361,7 +365,7 @@ def set_default_parameters(request):
             except Sample.DoesNotExist:
                 return JsonResponse(data)
             data["is_ok"] = True
-        return JsonResponse(data)
+    return JsonResponse(data)
 
 
 ## @csrf_protect
@@ -976,12 +980,12 @@ def turn_on_off_software(request):
 
                             makeup = (
                                 pipeline_makeup.match_makeup_name_from_list(
-                                    pipeline_steps_televir_project
+                                    pipeline_steps_televir_global
                                 )
                             )
 
                             if software.pipeline_step.name in ConstantsSettings.vect_pipeline_televir_classic:
-                                makeup = pipeline_makeup.check_makeuplist_has_classification(pipeline_steps_televir_project)
+                                makeup = pipeline_makeup.check_makeuplist_has_classification(pipeline_steps_televir_global)
 
                             if makeup is None:
                                 data["message"] = (
@@ -1350,10 +1354,10 @@ def turn_on_off_software(request):
                             screening=False,
                             mapping_only=True,
                         )
-                        _ = software_utils.get_sample_pathnodes(
-                            screening=True,
-                            mapping_only=False,
-                        )
+                        #_ = software_utils.get_sample_pathnodes(
+                        #    screening=True,
+                        #    mapping_only=False,
+                        #)
                         _ = software_utils.get_sample_pathnodes(
                             screening=False,
                             mapping_only=False,
@@ -1533,3 +1537,271 @@ def reset_project_settings(request):
         data["message"] = "Project settings were reset."
 
     return JsonResponse(data)
+
+
+@csrf_protect
+def get_user_televir_profiles_all(request):
+    data = {"is_ok": False, "message": "You are not allow to do this operation."}
+    if request.headers.get("x-requested-with") == "XMLHttpRequest":
+        try:
+            # load profiles and include color + project technology for the frontend
+            profiles_qs = TelevirProjectProfile.objects.filter(
+                Q(user=request.user) | Q(public=True)
+            )
+
+            user_profiles = []
+            for p in profiles_qs:
+                tech_name = ""
+                try:
+                    tech_name = p.project.technology if p.project and p.project.technology else ""
+                except Exception:
+                    tech_name = ""
+                user_profiles.append(
+                    {
+                        "id": p.pk,
+                        "name": p.name,
+                        "description": p.description or "",
+                        "color": p.color or "#f9f9f9",
+                        "technology": tech_name,
+                    }
+                )
+
+            data["user_profiles"] = user_profiles
+            data["is_ok"] = True
+            data["message"] = "User profiles retrieved successfully."
+        except Exception as e:
+            print(e)
+            traceback.print_exc()
+            data["message"] = "Error in the database."
+    
+    return JsonResponse(data)
+
+
+@csrf_protect
+def get_user_televir_profiles_technology(request):
+    data = {"is_ok": False, "message": "You are not allow to do this operation."}
+    if request.headers.get("x-requested-with") == "XMLHttpRequest":
+        technology_name = request.GET.get("technology_name", ConstantsSettings.TECHNOLOGY_illumina)
+        try:
+            profiles_qs = TelevirProjectProfile.objects.filter(
+                Q(user=request.user)
+                | Q(public=True),
+                project__technology=technology_name
+            )
+
+            user_profiles = []
+
+            for p in profiles_qs:
+                tech_name = ""
+                try:
+                    tech_name = p.project.technology if p.project and p.project.technology else ""
+                except Exception:
+                    tech_name = ""
+                user_profiles.append(
+                    {
+                        "id": p.pk,
+                        "name": p.name,
+                        "description": p.description or "",
+                        "color": p.color or "#f9f9f9",
+                        "technology": tech_name,
+                    }
+                )
+
+            data["user_profiles"] = list(user_profiles)
+            data["is_ok"] = True
+            data["message"] = "User profiles retrieved successfully."
+        except Exception as e:
+            print(e)
+
+            data["message"] = "Error in the database."
+    return JsonResponse(data)
+
+
+@csrf_protect
+def create_user_televir_profile(request):
+    data = {"is_ok": False, "message": "You are not allow to do this operation."}
+    if request.headers.get("x-requested-with") == "XMLHttpRequest":
+        profile_name = request.POST.get("name")
+        profile_description = request.POST.get("description", "")
+        if not profile_name:
+            data["message"] = "Profile name is required."
+            return JsonResponse(data)
+
+        try:
+
+            global_software = Software.objects.filter(
+                owner = request.user, 
+                type_of_use__in=Software.TELEVIR_GLOBAL_TYPES,
+                type_of_software__in=[
+                    Software.TYPE_SOFTWARE,
+                    Software.TYPE_INSAFLU_PARAMETER,
+                ],
+                is_obsolete=False,
+                technology__name=request.POST.get("technology_name", ConstantsSettings.TECHNOLOGY_illumina),
+                parameter__televir_project=None,
+                parameter__televir_project_sample=None,
+            )
+
+            new_project = PIProjects.objects.create(
+                owner=request.user,
+                name=profile_name,
+                description=profile_description,
+                is_profile=True,
+                technology=request.POST.get("technology_name", ConstantsSettings.TECHNOLOGY_illumina),
+            )
+            
+
+            type_of_use_conversion = {
+                Software.TYPE_OF_USE_televir_global: Software.TYPE_OF_USE_televir_project,
+                Software.TYPE_OF_USE_televir_settings: Software.TYPE_OF_USE_televir_project_settings,
+            }
+            for software in global_software:
+                software_parameters = Parameter.objects.filter(
+                    software=software,
+                )
+
+                type_of_use = type_of_use_conversion[software.type_of_use]
+
+                try:
+                    Software.objects.get(
+                        name=software.name,
+                        name_extended=software.name_extended,
+                        type_of_use=type_of_use,
+                        parameter__televir_project=new_project,
+                        parameter__televir_project_sample=None,
+                        pipeline_step=software.pipeline_step,
+                        technology__name=new_project.technology,
+                    )
+
+                except Software.MultipleObjectsReturned:
+                    pass
+
+                except Software.DoesNotExist:
+                    software.pk = None
+                    software.type_of_use = type_of_use
+                    software.save()
+                    for parameter in software_parameters:
+                        parameter.pk = None
+                        parameter.software = software
+                        parameter.televir_project = new_project
+                        parameter.save()
+
+            new_profile = TelevirProjectProfile.objects.create(
+                user=request.user,
+                name=profile_name,
+                description=profile_description,
+                public=request.POST.get("is_public", False),
+                project=new_project,
+                color = random.choice(TelevirProjectProfile.PROFILE_COLOR_PALETTE)
+            )
+            data["is_ok"] = True
+            data["message"] = "User profile created successfully."
+            data["profile_id"] = new_profile.pk
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            print(e)
+            data["message"] = "Error in the database."
+
+    return JsonResponse(data)
+
+
+@login_required
+@csrf_protect
+def delete_user_televir_profile(request):
+    data = {"is_ok": False, "message": "You are not allow to do this operation."}
+    if request.headers.get("x-requested-with") == "XMLHttpRequest":
+        profile_id = request.POST.get("profile_id")
+
+        if not profile_id:
+            data["message"] = "Profile ID is required."
+            return JsonResponse(data)
+
+        try:
+
+            profile = TelevirProjectProfile.objects.get(pk=profile_id, user=request.user)
+            project = profile.project
+            # Delete the profile first
+            profile.delete()
+
+            # Then delete the associated project and its software and parameters
+            if project:
+                project_parameters = Parameter.objects.filter(televir_project=project)
+                project_software = Software.objects.filter(parameter__televir_project=project)
+
+                for parameter in project_parameters:
+                    parameter.delete()
+
+                for software in project_software:
+                    software.delete()
+
+                project.delete()
+
+            data["is_ok"] = True
+            data["message"] = "User profile and associated settings deleted successfully."
+        except TelevirProjectProfile.DoesNotExist:
+            data["message"] = "Profile does not exist or you do not have permission to delete it."
+        except Exception as e:
+            print(e)
+            import traceback
+            print(traceback.format_exc())
+            data["message"] = "Error in the database."
+    return JsonResponse(data)
+
+@csrf_protect
+def copy_user_televir_profile(request):
+    data = {"is_ok": False, "message": "You are not allow to do this operation."}
+    if request.headers.get("x-requested-with") == "XMLHttpRequest":
+        profile_id = request.POST.get("profile_id")
+        project_id = request.POST.get("project_id")
+        profile = TelevirProjectProfile.objects.get(pk=profile_id, user=request.user)
+        profile_project = profile.project
+
+        project_software = Software.objects.filter(
+            parameter__televir_project__pk=project_id
+        )
+        errors = ""
+        try:
+
+            for software in project_software:
+                profile_software = Software.objects.filter(
+                    name=software.name,
+                    name_extended=software.name_extended,
+                    type_of_use=software.type_of_use,
+                    parameter__televir_project=profile_project,
+                    parameter__televir_project_sample=None,
+                    pipeline_step=software.pipeline_step,
+                ).distinct().first()
+
+                if not profile_software:
+                    errors += f"Software {software.name_extended} not found in profile project. "
+                    continue
+                software.is_to_run = profile_software.is_to_run
+                software.save()
+
+                software_parameters = Parameter.objects.filter(
+                    software=software,
+                )
+
+                for parameter in software_parameters:
+                    try:
+                        profile_parameter = Parameter.objects.get(
+                            software__name_extended=parameter.software.name_extended,
+                            software__pipeline_step=parameter.software.pipeline_step,
+                            software__technology=parameter.software.technology,
+                            televir_project = profile_project,
+                            name=parameter.name
+                        )
+                        parameter.parameter = profile_parameter.parameter
+                        parameter.save()
+                    except Parameter.DoesNotExist:
+                        pass
+
+        except Exception as e:
+            print(e)
+            data["message"] = "Error in the database."
+            return JsonResponse(data)       
+        data["is_ok"] = True
+        data["message"] = "Profile settings copied successfully." 
+
+        return JsonResponse(data)
