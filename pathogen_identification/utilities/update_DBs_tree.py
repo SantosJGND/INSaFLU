@@ -2,7 +2,7 @@ import datetime
 import os
 import sys
 from ast import Param
-from typing import Type
+from typing import Tuple, Optional
 
 from django.contrib.auth.models import User
 from django.core.files import File
@@ -48,11 +48,11 @@ def get_run_parents(run_class: RunMainTree_class, parameter_set: ParameterSet) -
             )
         else:
             runmain = RunMain.objects.get(
-                project=project,
-                # suprun=run_class.suprun,
+                suprun=run_class.suprun,
                 sample=sample,
-                # run_class.prefix,
+                name=run_class.prefix,
                 parameter_set=parameter_set,
+                project=project,
             )
 
     except RunMain.DoesNotExist:
@@ -216,7 +216,7 @@ def Update_QC_report(sample_class: Sample_runClass, parameter_set: ParameterSet)
 
 
 @transaction.atomic
-def Update_RunMain_Initial(run_class: RunMainTree_class, parameter_set: ParameterSet):
+def Update_RunMain_Initial(run_class: RunMainTree_class, parameter_set: ParameterSet) -> Tuple[bool, Optional[RunMain]]:
     """get run data
     Update ALL run TABLES:
     - RunMain,
@@ -226,16 +226,16 @@ def Update_RunMain_Initial(run_class: RunMainTree_class, parameter_set: Paramete
 
     try:
         with transaction.atomic():
-            Update_RunMain(run_class, parameter_set)
+            run_main = Update_RunMain(run_class, parameter_set)
 
-        return True
+        return True, run_main
 
     except Exception as e:
         import traceback
         traceback.print_exc()
         print(e)
         print(f"failed to update sample {run_class.sample_name}")
-        return False
+        return False, None
 
 
 @transaction.atomic
@@ -454,7 +454,7 @@ def RunIndex_Update_Retrieve_Key(project_name, sample_name):
     return new_name
 
 
-def Update_RunMain(run_class: RunMainTree_class, parameter_set: ParameterSet):
+def Update_RunMain(run_class: RunMainTree_class, parameter_set: ParameterSet) -> RunMain:
     """update run data for run_class. Update run_class.run_data.
 
     :param run_class:
@@ -492,7 +492,6 @@ def Update_RunMain(run_class: RunMainTree_class, parameter_set: ParameterSet):
         run_type = RunMain.RUN_TYPE_SCREENING
     else:
         run_type = RunMain.RUN_TYPE_PIPELINE
-    
 
     try:
         if run_class.run_pk is not None:
@@ -542,6 +541,7 @@ def Update_RunMain(run_class: RunMainTree_class, parameter_set: ParameterSet):
         )
 
         runmain.save()
+        run_class.run_pk = runmain.pk
 
     try:
         run_read_register = RunReadsRegister.objects.get(run=runmain)
@@ -565,6 +565,8 @@ def Update_RunMain(run_class: RunMainTree_class, parameter_set: ParameterSet):
         )
 
         run_read_register.save()
+    
+    return runmain
 
 
 def Sample_update_combinations(run_class: RunMainTree_class):

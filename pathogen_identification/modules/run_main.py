@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 
 from pathogen_identification.constants_settings import ConstantsSettings
-from pathogen_identification.models import PIProject_Sample, Projects
+from pathogen_identification.models import PIProject_Sample, Projects, RunMain
 from pathogen_identification.modules.assembly_class import Assembly_class
 from pathogen_identification.modules.classification_class import Classifier
 from pathogen_identification.modules.metadata_handler import RunMetadataHandler
@@ -1327,6 +1327,11 @@ class RunMainTree_class(Run_Deployment_Methods):
         self.sample.get_fake_qc_data()
         self.sample.r1.clean_read_names()
         self.sample.r2.clean_read_names()
+
+    
+    def update_run_main(self, run: RunMain):
+
+        self.run_pk= run.pk
 
     def Run_QC(self):
         if self.quality_control and not self.qc_performed:

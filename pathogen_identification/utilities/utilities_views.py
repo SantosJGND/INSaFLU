@@ -1973,7 +1973,7 @@ class ReportSorter:
                 max_mapped_proportion = self.max_mapped_prop,
                 max_coverage = self.max_coverage,
                 max_windows_covered = self.max_windows_covered,
-                shared_proportion_threshold = report_layout_params.shared_proportion_threshold,
+                _shared_proportion_threshold = report_layout_params.shared_proportion_threshold,
                 tree_plot_path = self.tree_plot_path,
                 tree_plot_exists = self.tree_plot_exists,
                 overlap_heatmap_path = self.overlap_heatmap_path,

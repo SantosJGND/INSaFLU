@@ -556,12 +556,15 @@ class Run_Main_from_Leaf:
 
             self.container.run_engine.Prep_deploy()
             self.container.run_engine.Run_QC()
-            db_updated = Update_RunMain_Initial(
+            db_updated, run_main = Update_RunMain_Initial(
                 self.container.run_engine, self.parameter_set
             )
-            self.register_running()
-            if not db_updated:
+            if not db_updated or run_main is None:
                 return False
+            
+            self.container.run_engine.update_run_main(run_main)
+            self.register_running()
+
         except Exception as e:
             print(traceback.format_exc())
             print(e)

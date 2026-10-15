@@ -641,11 +641,13 @@ class Tree_Progress:
     def update_node_dbs(self, node: Tree_Node, step="initial"):
 
         try:
-            db_updated = Update_RunMain_Initial(
+            db_updated, run_main = Update_RunMain_Initial(
                 node.run_manager.run_engine, node.parameter_set
             )
             if not db_updated:
                 return False
+
+            node.run_manager.run_engine.update_run_main(run_main)
 
             if (
                 node.run_manager.run_engine.qc_performed
