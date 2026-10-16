@@ -158,6 +158,11 @@ urlpatterns = [
         PIajax_views.assign_tag_to_project,
         name="assign_tag_to_project",
     ),
+    path(
+        "remove_tag_from_project",
+        PIajax_views.remove_tag_from_project,
+        name="remove_user_project_tag",
+    ),
     re_path(
         r"add_panels_to_project",
         PIajax_views.add_panels_to_project,

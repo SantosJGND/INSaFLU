@@ -1821,34 +1821,36 @@ def get_project_tags(request):
 
         user = request.user
         project_id = int(request.POST.get("project_id", 0))
-        project = Projects.objects.filter(id=project_id, owner=user).first()
+        project = Projects.objects.filter(pk=project_id, owner=user).first()
 
         if project:
             tags = ProjectTagAssignment.objects.filter(project=project).select_related("tag")
             for tag_assignment in tags:
-                data["tags"].append({"id": tag_assignment.tag.id, "name": tag_assignment.tag.name})
+                data["tags"].append({"id": tag_assignment.tag.pk, "name": tag_assignment.tag.name})
 
             data["is_ok"] = True
         return JsonResponse(data)
 
+@require_POST
 @csrf_protect
 def delete_project_tag(request):
     """
     Delete a tag for the current user
     """
+    data = {"is_ok": False}
     if request.headers.get("x-requested-with") == "XMLHttpRequest":
-        data = {"is_ok": False}
-
+        
         user = request.user
-        tag_id = int(request.POST.get("tag_id", 0))
+        tag_id = int(request.POST.get("tag_id", None))
+        if tag_id is None:
+            return JsonResponse(data)
         tag = ProjectTag.objects.filter(id=tag_id, owner=user, is_deleted=False).first()
 
         if tag:
-            tag.is_deleted = True
             tag.save()
             data["is_ok"] = True
 
-        return JsonResponse(data)
+    return JsonResponse(data)
 
 @csrf_protect
 def create_user_project_tag(request):
@@ -1916,6 +1918,27 @@ def assign_tag_to_project(request):
             data["is_ok"] = True
 
         return JsonResponse(data)
+    
+@csrf_protect
+def remove_tag_from_project(request):
+    """
+    Remove a tag from a project for the current user
+    """
+    data = {"is_ok": False}
+    if request.headers.get("x-requested-with") == "XMLHttpRequest":
+
+        user = request.user
+        project_id = int(request.POST.get("project_id", 0))
+        tag_id = int(request.POST.get("tag_id", 0))
+
+        project = Projects.objects.filter(id=project_id, owner=user).first()
+        tag = ProjectTag.objects.filter(id=tag_id, owner=user, is_deleted=False).first()
+
+        if project and tag:
+            ProjectTagAssignment.objects.filter(tag=tag, project=project).delete()
+            data["is_ok"] = True
+
+    return JsonResponse(data)
 
 #########################################################################
 ##################### TELEVIR FOCUS FUNCTIONS (TELEFLU) #################

@@ -56,8 +56,8 @@
 							</a>
 						</button>
 						<button class="btn btn-small btn-primary dark">
-							<a href="#id_user_tags_modal" id="id_project_tags_link" class="text-white" data-toggle="modal" data-toggle="tooltip" title="User Tags">
-								<i class="fa fa-tag"></i>  Project Tags
+							<a href="#id_user_tags_modal" id="id_project_tags_link"  delete-tags-url="{% url 'delete_project_tag' %}" class="text-white" data-toggle="modal" data-toggle="tooltip" title="User Tags">
+								<i class="project-tags fa fa-tag"></i>  Project Tags
 							</a>
 						</button>
 					</th>
@@ -201,7 +201,7 @@
 
 <!-- The add tags to project modal -->
 <div class="modal fade" id="id_add_tags_modal">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
 
             <!-- Modal Header -->
@@ -237,7 +237,7 @@
 
             <!-- Modal body -->
             <div class="modal-body mw-100">
-                <div id="id-modal-body-display-project-tags" project-tags-url="{% url 'get_project_tags' %}">
+                <div id="id-modal-body-display-project-tags" remove-tag-url="{% url 'remove_user_project_tag' %}" project-tags-url="{% url 'get_project_tags' %}">
                     <!-- grid container for project tags -->
                     <div class="profiles-grid" role="list" aria-label="Project tags list">
                         <!-- Tags will be dynamically loaded here -->
@@ -282,7 +282,7 @@
         });
     });
 
-	    /// set wait screen
+    /// set wait screen
     $('#id_go_back_button').on('click', function(){
         wait_screen();
     });
@@ -314,6 +314,82 @@
         return yiq >= 128 ? '#000' : '#fff';
     }
 
+
+    $(document).on("click", "#id_manage_tags", function () {
+        var projectId = $(this).data("project_pk") || $(this).attr("project_pk");
+        $("#id_manage_tags_modal").attr("data-project-id", projectId);
+    });
+
+    $(document).on("click", "#id_add_tags", function () {
+        var projectId = $(this).data("project_pk") || $(this).attr("project_pk");
+        $("#id_add_tags_modal").attr("data-project-id", projectId);
+    });
+
+    $(document).on("click", ".remove-profile", function () {
+        var tagId = $(this).attr('data-tag-id') || $(this).data('tag-id');
+        if (confirm("Are you sure you want to remove this tag?")) {
+            url=$('#id-modal-body-display-project-tags').attr('remove-tag-url');
+            project_id = $('#id_manage_tags_modal').attr('data-project-id');
+
+            $.ajax({
+                url: url,
+                method: "POST",
+                data: {
+                    tag_id: tagId,
+                    project_id: project_id,
+                    csrfmiddlewaretoken: getCsrfToken()
+                },
+                success: function (data) {
+                    if (data['is_ok']) {
+                        // transient non-blocking notice and remove card
+                        var $note = $('<div class="alert alert-success" role="alert" style="position:fixed;top:16px;right:16px;z-index:2100;padding:8px 12px;border-radius:6px;">Tag removed</div>');
+                        $('body').append($note);
+                        setTimeout(function () { $note.fadeOut(220, function () { $(this).remove(); }); }, 900);
+                        $(`button[data-tag-id="${tagId}"]`).closest('.profile-card').remove();
+                    } else {
+                        alert("Error removing tag: " + data.error);
+                    }
+                },
+                error: function (xhr, errmsg, err) {
+                    alert(errmsg);
+                    console.log(xhr.status + ": " + xhr.responseText);
+                }
+            });
+        }
+    });
+
+    $(document).on("click", ".delete-profile", function () {
+        var tagId = $(this).attr('data-tag-id') || $(this).data('tag-id');
+        if (confirm("Are you sure you want to remove this tag?")) {
+            url=$('#id_project_tags_link').attr('delete-tags-url');
+            $.ajax({
+                url: url,
+                method: "POST",
+                data: {
+                    tag_id: tagId,
+                    csrfmiddlewaretoken: getCsrfToken()
+                },
+                success: function (data) {
+                    if (data['is_ok']) {
+                        // transient non-blocking notice and remove card
+                        var $note = $('<div class="alert alert-success" role="alert" style="position:fixed;top:16px;right:16px;z-index:2100;padding:8px 12px;border-radius:6px;">Tag removed</div>');
+                        $('body').append($note);
+                        setTimeout(function () { $note.fadeOut(220, function () { $(this).remove(); }); }, 900);
+                        $(`button[data-tag-id="${tagId}"]`).closest('.profile-card').remove();
+                        setTimeout(function () { $note.fadeOut(220, function () { $(this).remove(); }); }, 900);
+
+                    } else {
+                        alert("Error removing tag: " + data.error);
+                    }
+                },
+                error: function (xhr, errmsg, err) {
+                    alert(errmsg);
+                    console.log(xhr.status + ": " + xhr.responseText);
+                }
+            });
+        }
+    });
+
     $(document).on("click", "#id_manage_tags", function () {
         url = $('#id-modal-body-display-project-tags').attr('project-tags-url');
         project_id = $(this).attr('project_pk');
@@ -327,15 +403,14 @@
             success: function (data) {
                 let tagsHtml = '';
                 data.tags.forEach(tag => {
-                    const bg = tag.color || '#2f6bed';
-                    const textColor = getContrastColor(bg);
+
                     tagsHtml += `
-                        <div class="profile-card" style="background-color: ${bg}; color: ${textColor};">
+                        <div class="profile-card">
                             <div class="profile-info">
                                 <h6>${tag.name}</h6>
                                 <p class="mb-0 small text-muted">${tag.description || 'No description'}</p>
                             </div>
-                            <button class="delete-profile btn btn-danger btn-sm" data-tag-id="${tag.id}" onclick="removeTag(${tag.id})">×</button>
+                            <button class="remove-profile btn btn-danger btn-sm" data-tag-id="${tag.id}">×</button>
                         </div>
                     `;
                 });
@@ -362,10 +437,8 @@
             success: function (data) {
                 let tagsHtml = '';
                 data.tags.forEach(tag => {
-                    const bg = tag.color || '#f5f7ff';
-                    const textColor = getContrastColor(bg);
                     tagsHtml += `
-                        <div class="profile-card" style="background-color: ${bg}; color: ${textColor};">
+                        <div class="profile-card">
                             <div class="profile-info">
                                 <h6>${tag.name}</h6>
                             </div>
@@ -430,12 +503,12 @@
                     const bg = tag.color || '#2f6bed';
                     const textColor = getContrastColor(bg);
                     tagsHtml += `
-                        <div class="profile-card" style="background-color: ${bg}; color: ${textColor};">
+                        <div class="profile-card">
                             <div class="profile-info">
                                 <h6>${tag.name}</h6>
                                 <p class="small text-muted">${tag.description || 'No description'}</p>
                             </div>
-                            <button class="delete-profile btn btn-danger btn-sm" data-tag-id="${tag.id}" onclick="removeTag(${tag.id})">×</button>
+                            <button class="delete-profile btn btn-danger btn-sm" data-tag-id=${tag.id}>×</button>
                         </div>
                     `;
                 });
