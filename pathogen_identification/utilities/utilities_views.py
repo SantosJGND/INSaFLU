@@ -1068,6 +1068,13 @@ class FinalReportWrapper:
         self.row_class_name = "secondary-row"
         self.display = "none"
         self.report_pk = report.pk
+    
+    @property
+    def found_in(self):
+        try:
+            return RunMain.objects.filter(pk= self.run_index)
+        except RunMain.DoesNotExist:
+            return RunMain.objects.none()
 
     @staticmethod
     def prep_for_static(filepath: str) -> str:
@@ -1222,6 +1229,8 @@ class FinalReportGroup:
         )
 
         self.update_max_coverage()
+
+    
 
     def reports_have_private_reads(self) -> bool:
         for report in self.group_list:
@@ -1947,7 +1956,6 @@ class ReportSorter:
         if excluded_reports_exist and self.analysis_empty is False:
             if len(empty_reports.group_list) > 0:
                 sorted_reports.append(empty_reports)
-
 
         clade_heatmap_json = self.clade_heatmap_json(
             to_keep=[report_group.name for report_group in sorted_reports]

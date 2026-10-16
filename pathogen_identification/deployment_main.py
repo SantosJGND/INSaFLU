@@ -282,6 +282,10 @@ class PathogenIdentification_SingleDeployment(PathogenIdentificationDeploymentCo
         self.pipeline_index = pipeline_index
         self.pk = pk
         self.parameter_set = ParameterSet.objects.get(pk=pk)
+
+        if self.parameter_set.leaf is None:
+            raise Exception("Parameter set leaf is None")
+
         self.tree_makup = self.parameter_set.leaf.software_tree.global_index
 
     @property
@@ -297,8 +301,21 @@ class PathogenIdentification_SingleDeployment(PathogenIdentificationDeploymentCo
         software_tree_utils = SoftwareTreeUtils(self.project.owner, self.project)
 
         all_paths = software_tree_utils.get_all_technology_pipelines(pipeline_type=self.pipeline_type)
+        print("all_paths", all_paths)
 
-        self.run_params_db = all_paths.get(self.pipeline_index, None)
+        pipeline_tree = software_tree_utils.query_software_default_tree(global_index=self.tree_makup)
+        all_paths = pipeline_tree.get_all_graph_paths()
+        
+        if not all_paths:
+            print("No paths found in pipeline tree")
+            return False
+        converted_index = pipeline_tree.match_node_to_index(self.parameter_set.leaf)
+
+        print("pipeline_index", self.pipeline_index)
+        print("index", converted_index)
+
+        print("all_paths", all_paths)
+        self.run_params_db = all_paths.get(converted_index, None)
 
         if self.run_params_db is None:
             print("Pipeline index not found")

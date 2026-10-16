@@ -2609,12 +2609,6 @@ class SoftwareTreeUtils:
                     node_index[parent], node_index[child.pk]
                 ))
 
-        #    if node.parent:
-        #        edges.append((node.parent.index, node.index))
-        #    nodes.append((node.index, (node.name, node.value, node.node_type)))
-        #    if node.node_place == SoftwareTreeNode.LEAF_node:
-        #        leaves.append(node.index)
-
         pipeline_tree = PipelineTree(
             technology=software_tree.technology,
             nodes=nodes,
@@ -2923,11 +2917,6 @@ class SoftwareTreeUtils:
 
         submission_dict = {sample: []}
 
-        #available_path_nodes = self.get_sample_pathnodes(
-        #    screening=False,
-        #    mapping_only=True,
-        #)
-
         available_path_nodes = self.query_available_pathnodes(
             pipeline_type=SoftwareTree.PIPELINE_TYPE_MAPPING
         )
@@ -2938,10 +2927,6 @@ class SoftwareTreeUtils:
             )
         )
 
-        # samples_leaf_dict = {
-        #    sample: available_path_nodes.values() for sample in submission_dict.keys()
-        # }
-
         return clean_samples_leaf_dict
 
     def check_runs_to_submit_screening_sample(self, sample: PIProject_Sample) -> dict:
@@ -2950,11 +2935,6 @@ class SoftwareTreeUtils:
         """
 
         submission_dict = {sample: []}
-
-        #available_path_nodes = self.get_sample_pathnodes(
-        #    screening=True,
-        #    mapping_only=False,
-        #)
 
         available_path_nodes= self.query_available_pathnodes(
             pipeline_type=SoftwareTree.PIPELINE_TYPE_SCREENING,
@@ -3046,16 +3026,6 @@ class SoftwareTreeUtils:
         }
 
         return all_paths
-
-    def generate_software_tree(self, tree_makeup: int):
-        """
-        Generate a software tree for a technology and a tree makeup
-        """
-
-        if self.check_default_software_tree_exists(global_index=tree_makeup):
-            return self.query_software_default_tree(global_index=tree_makeup)
-        else:
-            raise Exception("No software tree for technology")
 
     def generate_software_tree_register(self, local_tree: PipelineTree):
         """

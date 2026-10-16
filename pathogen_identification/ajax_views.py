@@ -2157,8 +2157,8 @@ def load_teleflu_workflows(request):
         teleflu_project = TeleFluProject.objects.get(pk=teleflu_project_pk)
         mapping_workflows = []
         existing_mapping_pks = []
+        
         try:
-
             for mapping in mappings:
                 if mapping.leaf is None:
                     continue
