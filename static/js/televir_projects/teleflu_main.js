@@ -67,7 +67,8 @@ var load_teleflu_workflows = function () {
                 workflowTitle.append(workflowName);
     
                 var stepContainer = $('<div>').addClass('step-container');
-                workflow.modules.forEach(function(step) {
+                workflow.modules.forEach(function (step) {
+                    console.log('Step:', step);
                     var stepCircleDisplay = $('<div>').addClass('step-circle-display ' + step.available).attr('title', step.module).attr('data-parameters', step.parameters).text(step.short_name);
                     var parametersContainerHover = $('<div>').addClass('parameters-container-hover');
                     stepCircleDisplay.append(parametersContainerHover);

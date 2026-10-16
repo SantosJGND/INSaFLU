@@ -74,7 +74,7 @@ class LayoutParams:
 class TelevirParameters:
     @staticmethod
     def technology_mincov(project: Projects):
-        if project.technology in [CS.TECHNOLOGY_illumina, CS.TECHNOLOGY_illumina_old]:
+        if project.technology == CS.TECHNOLOGY_illumina:
             return PI_CS.CONSTANTS_ILLUMINA["minimum_coverage_threshold"]
         elif project.technology == CS.TECHNOLOGY_minion:
             return PI_CS.CONSTANTS_ONT["minimum_coverage_threshold"]

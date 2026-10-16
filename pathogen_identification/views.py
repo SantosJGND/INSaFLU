@@ -1053,6 +1053,7 @@ def teleflu_node_info(node, params_df, node_pk):
         acronym = [x[0] for x in pipeline_step.split(" ")]
         acronym = "".join(acronym).upper()
         params = params_df[params_df.module == pipeline_step].to_dict("records")
+
         for block in params:  # if there are parameters for this module
             software = block.get("software")
             software = software.split("_")[0]
@@ -1073,7 +1074,7 @@ def teleflu_node_info(node, params_df, node_pk):
                     ),
                 }
             )
-
+    
     return node_info
 
 

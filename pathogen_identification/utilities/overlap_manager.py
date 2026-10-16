@@ -157,28 +157,6 @@ def very_similar_groups_from_dataframe(
     return clusters
 
 
-def clade_private_proportions_old(read_profile_matrix_filtered, leaves: list) -> float:
-    """ """
-    group = read_profile_matrix_filtered.loc[leaves]
-    group_sum = group.sum(axis=0)
-    group_sum_as_bool = group_sum > 0
-    group_sum_as_bool_list = group_sum_as_bool.tolist()
-
-    group_reads = read_profile_matrix_filtered.iloc[:, group_sum_as_bool_list]
-
-    group_reads_sum_all = group_reads.sum(axis=0)
-    group_reads_sum_group = group_reads.loc[leaves].sum(axis=0)
-    group_reads_sum_group = group_reads_sum_group.fillna(0)
-
-    read_proportions = group_reads_sum_group / group_reads_sum_all
-    read_proportions = read_proportions.fillna(0)
-
-    # proportion of reads in group that are private
-    proportion_private = read_proportions.sum() / len(read_proportions)
-
-    return proportion_private
-
-
 def clade_private_proportions(
     read_profile_matrix: pd.DataFrame, leaves: list
 ) -> Tuple[float, float, float]:

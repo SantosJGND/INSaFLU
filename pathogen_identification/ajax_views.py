@@ -2111,20 +2111,23 @@ def teleflu_node_info(params_df, leaf: SoftwareTreeNode):
         acronym = [x[0] for x in pipeline_step.split(" ")]
         acronym = "".join(acronym).upper()
         params = params_df[params_df.module == pipeline_step].to_dict("records")
-        if params:  # if there are parameters for this module
-            software = params[0].get("software_name", "")
+        total_params = []
+        for param in params:
+            
+            software = param.get("software_name", "")
             software = software.split("_")[0]
 
-            params = params[0].get("value")
-            params = excise_paths_leaf_last(params)
-            params = f"{software} {params}"
-        else:
-            params = ""
+            param_value = param.get("value", "")
+            param_value = excise_paths_leaf_last(param_value)
+            param_value = f"{software} {param_value}"
+            total_params.append(param_value)
+        
+        total_params = " | ".join(total_params)
 
         node_info["modules"].append(
             {
                 "module": pipeline_step,
-                "parameters": params,
+                "parameters": total_params,
                 "short_name": acronym,
                 "available": (
                     "software_on"
@@ -2162,6 +2165,7 @@ def load_teleflu_workflows(request):
 
                 params_df = utils_manager.get_leaf_parameters(mapping.leaf)
                 node_info = teleflu_node_info(params_df, mapping.leaf)
+                
 
                 samples_mapped = mapping.mapped_samples
 

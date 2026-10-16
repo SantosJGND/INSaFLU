@@ -810,38 +810,6 @@ class Read_class:
             os.remove(self.current)
             os.rename(temp_fq_gz, self.current)
 
-    def clean_read_names_old(self):
-        """
-        Clean read names in current fastq file.
-        """
-
-        if not self.exists:
-            return
-
-        temp_fq = os.path.join(
-            os.path.dirname(self.current), f"temp_clean_{randint(1,1000)}.fastq"
-        )
-        temp_fq_gz = temp_fq + ".gz"
-
-        cmd_unzip = "gunzip -c %s > %s" % (self.current, temp_fq)
-
-        cmd = [
-            "sed",
-            "-i",
-            "'/^[@+]/ s/\/[12]$//g'",
-            temp_fq,
-        ]
-
-        cmd_zip = "bgzip %s" % temp_fq
-
-        self.cmd.run_bash(cmd_unzip)
-        self.cmd.run_bash(cmd)
-        self.cmd.run(cmd_zip)
-
-        if os.path.isfile(temp_fq_gz) and os.path.getsize(temp_fq_gz) > 100:
-            os.remove(self.current)
-            os.rename(temp_fq_gz, self.current)
-
     def remove_duplicate_reads(self):
         """
         Remove duplicate reads from current fastq file.

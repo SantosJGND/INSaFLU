@@ -131,10 +131,8 @@ class ConstantsSettings(object):
 
     ###############################
     ### technology available
-    TECHNOLOGY_illumina_old = "Illumina"
     TECHNOLOGY_illumina = "Illumina/IonTorrent"
     TECHNOLOGY_minion = "ONT"
-    TECHNOLOGY_generic_old = "Generic"
     TECHNOLOGY_generic = "Extra"
     TECHNOLOGY_Undefined = "Undefined"
 
