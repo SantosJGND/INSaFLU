@@ -528,7 +528,7 @@ class Tree_Progress:
             if not update_success:
                 self.logger.warning(f"Node {leaf_node.node_index} failed to update databases")
                 leaf_node = self.spawn_node_child(node, leaf)
-                # self.submit_node_run(leaf_node)
+                # 
                 _ = leaf_node.register_failed(
                     self.project, self.sample, self.tree
                 )
@@ -578,8 +578,8 @@ class Tree_Progress:
 
         origin_node.receive_run_manager(run_manager)
         self.register_node_leaves(origin_node)
+        self.update_node_leaves_dbs(origin_node)
 
-        
         self.current_nodes = [origin_node]
 
     def get_current_module(self):

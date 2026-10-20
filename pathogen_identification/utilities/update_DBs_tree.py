@@ -39,6 +39,13 @@ def get_run_parents(run_class: RunMainTree_class, parameter_set: ParameterSet) -
         name=run_class.project_name, owner=user, is_deleted=False
     )
 
+    if run_class.run_type == run_class.RUN_TYPE_COMBINED_MAPPING:
+        run_type = RunMain.RUN_TYPE_COMBINED_MAPPING
+    elif run_class.run_type == run_class.RUN_TYPE_SCREENING:
+        run_type = RunMain.RUN_TYPE_SCREENING
+    else:
+        run_type = RunMain.RUN_TYPE_PIPELINE
+
     sample = run_class.sample_registered
 
     try:
@@ -48,11 +55,10 @@ def get_run_parents(run_class: RunMainTree_class, parameter_set: ParameterSet) -
             )
         else:
             runmain = RunMain.objects.get(
-                suprun=run_class.suprun,
                 sample=sample,
-                name=run_class.prefix,
                 parameter_set=parameter_set,
                 project=project,
+                run_type=run_type
             )
 
     except RunMain.DoesNotExist:
