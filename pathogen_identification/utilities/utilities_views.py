@@ -1029,6 +1029,7 @@ class EmptyRemapMain:
     coverage_maximum = 0
     success = False
     coverage_mean = ""
+    missing_log_exists = False
 
 
 class FinalReportWrapper:
