@@ -529,6 +529,9 @@ class Tree_Progress:
             self.register_node(leaf_node)
             print(f"Update registered databases for node {leaf_node.node_index}...")
             print(leaf_node.parameters)
+            leaf_node.run_manager.configure_constants()
+            leaf_node.run_manager.run_main_prep_check_first()
+
             _update_success = self.update_node_dbs(leaf_node)
 
 

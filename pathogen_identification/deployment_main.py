@@ -491,10 +491,6 @@ class Run_Main_from_Leaf:
 
         try:
 
-
-
-
-
             if self.mapping_request:
                 self.container.run_engine.run_type = (
                     RunMainTree_class.RUN_TYPE_MAPPING_REQUEST
