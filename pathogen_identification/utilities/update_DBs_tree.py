@@ -304,6 +304,7 @@ def Update_Classification(
     try:
         with transaction.atomic():
             Update_RunMain_noCheck(run_class, parameter_set, tag=tag)
+            Update_Run_Detail_noCheck(run_class, parameter_set)
             Update_Run_Classification(run_class, parameter_set)
 
         return True
