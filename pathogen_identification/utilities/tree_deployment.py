@@ -531,7 +531,7 @@ class Tree_Progress:
             print(leaf_node.parameters)
             leaf_node.run_manager.configure_constants()
             leaf_node.run_manager.run_main_prep_check_first()
-
+            print(leaf_node.run_manager.run_engine)
             _update_success = self.update_node_dbs(leaf_node)
 
 
