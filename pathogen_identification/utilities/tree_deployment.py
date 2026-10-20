@@ -482,6 +482,7 @@ class Tree_Progress:
             self.output_directory = temp_dir
 
         self.initialize_nodes()
+        
         self.determine_current_module_from_nodes()
 
     def setup_deployment_manager(self):
@@ -514,6 +515,7 @@ class Tree_Progress:
         for leaf in node.leaves:
             leaf_node = self.spawn_node_child(node, leaf)
             _ = self.register_node_safe(leaf_node)
+            self.update_node_dbs(leaf_node)
 
     def update_node_leaves_dbs(self, node: Tree_Node):
         print(f"Updating databases for leaves {node.leaves} of node {node.node_index}...")
@@ -575,9 +577,9 @@ class Tree_Progress:
         run_manager = self.setup_deployment_manager()
 
         origin_node.receive_run_manager(run_manager)
-
         self.register_node_leaves(origin_node)
 
+        
         self.current_nodes = [origin_node]
 
     def get_current_module(self):

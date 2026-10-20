@@ -510,9 +510,9 @@ def Update_RunMain(run_class: RunMainTree_class, parameter_set: ParameterSet) ->
         else:
             runmain = RunMain.objects.get(
                 project__name=run_class.sample.project_name,
-                suprun=run_class.suprun,
+                #suprun=run_class.suprun,
                 sample=sample,
-                name=run_class.prefix,
+                #name=run_class.prefix,
                 parameter_set=parameter_set,
                 run_type=run_type,
             )
