@@ -516,6 +516,7 @@ class Tree_Progress:
             leaf_node = self.spawn_node_child_prepped(node, leaf)
             self.register_node(leaf_node)
             print(f"Update registered databases for node {leaf_node.node_index}...")
+            print(leaf_node.parameters)
             _update_success = self.update_node_dbs(leaf_node)
 
 
