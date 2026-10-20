@@ -216,13 +216,16 @@ def Update_QC_report(sample_class: Sample_runClass, parameter_set: ParameterSet)
 
 
 @transaction.atomic
-def Update_RunMain_Initial(run_class: RunMainTree_class, parameter_set: ParameterSet) -> Tuple[bool, Optional[RunMain]]:
+def Update_RunMain_Initial(run_class: RunMainTree_class, parameter_set: ParameterSet) -> Tuple[bool, None | RunMain]:
     """get run data
     Update ALL run TABLES:
     - RunMain,
     :param sample_class:
     :return: run_data
     """
+
+    print("########### UPDATING RUN TABLES FOR SAMPLE: ", run_class.sample_name, " ##############")
+    print("# run pk is: ", run_class.run_pk)
 
     try:
         with transaction.atomic():
@@ -232,9 +235,11 @@ def Update_RunMain_Initial(run_class: RunMainTree_class, parameter_set: Paramete
                 run_class.RUN_TYPE_COMBINED_MAPPING,
                 run_class.RUN_TYPE_PANEL_MAPPING,
             ]:
-                Update_RunMain_noCheck(run_class, parameter_set)
+                run_main = Update_RunMain_noCheck(run_class, parameter_set)
             else:
                 run_main = Update_RunMain(run_class, parameter_set)
+        print(f"##############  Successfully run {run_main.pk} for sample {run_class.sample_name} ##############")
+
         return True, run_main
 
     except Exception as e:
@@ -473,10 +478,6 @@ def Update_RunMain(run_class: RunMainTree_class, parameter_set: ParameterSet) ->
         name=run_class.project_name, owner=user, is_deleted=False
     )
 
-    # sample = PIProject_Sample.objects.get(
-    #    name=run_class.sample.sample_name,
-    #    project=project,
-    # )
     sample = run_class.sample_registered
 
     reads_after_processing = run_class.sample.reads_after_processing
@@ -610,7 +611,7 @@ def get_run_parents_and_reads(run_class: RunMainTree_class, parameter_set: Param
 
 def Update_RunMain_noCheck(
     run_class: RunMainTree_class, parameter_set: ParameterSet, tag="secondary"
-) -> Optional[RunMainTree_class]:
+) -> Optional[RunMain]:
     """update run data for run_class. Update run_class.run_data.
 
     :param run_class:

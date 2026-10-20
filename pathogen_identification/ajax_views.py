@@ -898,9 +898,10 @@ def submit_televir_project_sample(request):
     """
     submit a new sample to televir project
     """
+    data = {"is_ok": False, "is_deployed": False}
     if request.headers.get("x-requested-with") == "XMLHttpRequest":
         try:
-            data = {"is_ok": False, "is_deployed": False}
+            
             process_SGE = ProcessSched()
             user = request.user
 
@@ -943,7 +944,8 @@ def submit_televir_project_sample(request):
             data["is_deployed"] = False
         print(data)
         data["is_ok"] = True
-        return JsonResponse(data)
+
+    return JsonResponse(data)
 
 
 @login_required

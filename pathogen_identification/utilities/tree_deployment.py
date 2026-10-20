@@ -143,7 +143,6 @@ class Tree_Node:
             sample=self.parameter_set.sample
         ).order_by("-coverage")
         final_reports = final_report_best_cov_by_accid(final_reports)
-        print(final_reports)
 
         report_sorter = ReportSorter(
             self.parameter_set.sample, final_reports, report_layout_params
@@ -518,6 +517,7 @@ class Tree_Progress:
         for leaf in node.leaves:
             leaf_node = self.spawn_node_child_prepped(node, leaf)
             self.register_node(leaf_node)
+            print(f"Updating databases for node {leaf_node.node_index}...")
             update_success = self.update_node_dbs(leaf_node)
 
             if not update_success:
@@ -638,13 +638,13 @@ class Tree_Progress:
 
         return registraction_success
 
-    def update_node_dbs(self, node: Tree_Node, step="initial"):
+    def update_node_dbs(self, node: Tree_Node):
 
         try:
             db_updated, run_main = Update_RunMain_Initial(
                 node.run_manager.run_engine, node.parameter_set
             )
-            if not db_updated:
+            if not db_updated or run_main is None:
                 return False
 
             node.run_manager.run_engine.update_run_main(run_main)

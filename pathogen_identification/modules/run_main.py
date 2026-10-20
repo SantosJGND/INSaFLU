@@ -629,8 +629,7 @@ class RunDetail_main:
 
     def Update(self, config: dict, method_args: pd.DataFrame):
         self.method_args = pd.concat((self.method_args, method_args))
-        # with open(config_json) as json_file:
-        #    config = json.load(json_file)
+
 
         self.config = config
         self.prefix = config["prefix"]
@@ -1330,7 +1329,6 @@ class RunMainTree_class(Run_Deployment_Methods):
 
     
     def update_run_main(self, run: RunMain):
-
         self.run_pk= run.pk
 
     def Run_QC(self):
