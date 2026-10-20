@@ -509,11 +509,14 @@ class Tree_Progress:
         if node.node_index in node.leaves:
             self.register_finished(node)
 
+        print(f"Registering leaves {node.leaves} for node {node.node_index}...")
+
         for leaf in node.leaves:
             leaf_node = self.spawn_node_child(node, leaf)
             _ = self.register_node_safe(leaf_node)
 
     def update_node_leaves_dbs(self, node: Tree_Node):
+        print(f"Updating databases for leaves {node.leaves} of node {node.node_index}...")
         for leaf in node.leaves:
             leaf_node = self.spawn_node_child_prepped(node, leaf)
             self.register_node(leaf_node)
@@ -1081,6 +1084,8 @@ class Tree_Progress:
         action = map_actions[self.current_module]
 
         action()
+
+        print(f"Current module: {self.current_module}, current nodes: {[node.node_index for node in self.current_nodes]}")
 
         for node in self.current_nodes:
             if self.classification_monitor.ready_to_merge(node):
