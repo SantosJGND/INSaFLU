@@ -226,8 +226,15 @@ def Update_RunMain_Initial(run_class: RunMainTree_class, parameter_set: Paramete
 
     try:
         with transaction.atomic():
-            run_main = Update_RunMain(run_class, parameter_set)
-
+            if run_class.run_type in [
+                run_class.RUN_TYPE_MAPPING_REQUEST,
+                run_class.RUN_TYPE_SCREENING,
+                run_class.RUN_TYPE_COMBINED_MAPPING,
+                run_class.RUN_TYPE_PANEL_MAPPING,
+            ]:
+                Update_RunMain_noCheck(run_class, parameter_set)
+            else:
+                run_main = Update_RunMain(run_class, parameter_set)
         return True, run_main
 
     except Exception as e:
@@ -586,7 +593,7 @@ def Sample_update_combinations(run_class: RunMainTree_class):
     sample.save()
 
 
-def get_run_parents_and_reads(run_class: RunMainTree_class, parameter_set: ParameterSet):
+def get_run_parents_and_reads(run_class: RunMainTree_class, parameter_set: ParameterSet) -> Tuple[Optional[PIProject_Sample], Optional[RunMain], Optional[Projects], Optional[RunReadsRegister]]:
 
     sample, runmain, project = get_run_parents(run_class, parameter_set)
 
@@ -603,7 +610,7 @@ def get_run_parents_and_reads(run_class: RunMainTree_class, parameter_set: Param
 
 def Update_RunMain_noCheck(
     run_class: RunMainTree_class, parameter_set: ParameterSet, tag="secondary"
-):
+) -> Optional[RunMainTree_class]:
     """update run data for run_class. Update run_class.run_data.
 
     :param run_class:
@@ -614,7 +621,7 @@ def Update_RunMain_noCheck(
     )
 
     if sample is None or runmain is None:
-        return
+        return None
 
     reads_after_processing = run_class.sample.reads_after_processing
 
@@ -632,6 +639,9 @@ def Update_RunMain_noCheck(
     host_depletion_method = run_class.depletion_drone.classifier_method.name
     host_depletion = run_class.depletion_drone.deployed
 
+    assembly_exists = run_class.assembly_drone.assembly_exists if run_class.assembly_drone is not None else False
+    reads_proc_percent = 0 if run_class.sample.reads_before_processing == 0 else (reads_after_processing / run_class.sample.reads_before_processing) * 100
+
     runmain.parameter_set = parameter_set
     runmain.suprun = run_class.suprun
     runmain.project = project
@@ -640,7 +650,7 @@ def Update_RunMain_noCheck(
     runmain.params_file_path = run_class.params_file_path
     runmain.processed_reads_r1 = run_class.sample.r1.current
     runmain.processed_reads_r2 = run_class.sample.r2.current
-    runmain.assembly_performed = run_class.assembly_drone.assembly_exists
+    runmain.assembly_performed = assembly_exists
     runmain.assembly_method = run_class.assembly_drone.assembly_method.name
     runmain.reads_after_processing = f"{reads_after_processing:,}"
     runmain.reads_proc_percent = round(reads_proc_percent, 2)
@@ -677,6 +687,8 @@ def Update_RunMain_noCheck(
         run_read_register.depleted_reads_r1 = run_class.sample.r1.depleted
         run_read_register.depleted_reads_r2 = run_class.sample.r2.depleted
         run_read_register.save()
+    
+    return runmain
 
 
 def Update_Run_Detail(run_class: RunMainTree_class, parameter_set: ParameterSet):

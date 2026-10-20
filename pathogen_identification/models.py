@@ -859,12 +859,11 @@ class RunMain(models.Model):
         max_length=100, blank=True, null=True
     )  # reads after processing
 
-    reads_proc_percent = models.CharField(
+    reads_proc_percent = models.FloatField(
         max_length=100, blank=True, null=True
     )  # percent of reads after processing
 
-    assembly_performed = models.CharField(
-        max_length=10, blank=True, null=True
+    assembly_performed = models.BooleanField(blank=True, null=True
     )  # assembly method if any
     assembly_method = models.CharField(
         max_length=50, blank=True, null=True

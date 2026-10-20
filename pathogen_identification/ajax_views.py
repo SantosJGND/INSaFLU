@@ -612,6 +612,7 @@ def submit_samples_mapping_panels(request):
                 reference_manager = SampleReferenceManager(sample)
 
                 software_utils = SoftwareTreeUtils(user, project, sample=sample)
+                
                 runs_to_deploy, _ = (
                     software_utils.check_runs_to_submit_mapping_only(sample)
                 )
