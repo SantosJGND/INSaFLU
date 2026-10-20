@@ -512,9 +512,7 @@ class Tree_Progress:
 
         print(f"Registering leaves {node.leaves} for node {node.node_index}...")
 
-        for leaf in node.leaves:
-            leaf_node = self.spawn_node_child(node, leaf)
-            
+        for leaf in node.leaves:            
             leaf_node = self.spawn_node_child_prepped(node, leaf)
             self.register_node(leaf_node)
             print(f"Update registered databases for node {leaf_node.node_index}...")
