@@ -714,6 +714,8 @@ class PipelineTree:
             for z in list(set([x[0] for x in self.nodes_compress]))
         }
 
+        print(self.compress_dag_dict)
+
 
 
 class UtilityDB:
