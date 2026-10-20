@@ -518,8 +518,10 @@ class Tree_Progress:
 
         for leaf in node.leaves:            
             leaf_node = self.spawn_node_child_prepped(node, leaf)
+            leaf_node.branch = [x[0] for x in self.tree.paths_to_node(leaf_node.node_index)]
             print("PATHOS: ", self.tree.paths_to_node(leaf_node.node_index))
-            leaf_node.branch = self.tree.paths_to_node(leaf_node.node_index)
+            print("BRANCH: ", leaf_node.branch)
+
             leaf_node.parameters = leaf_node.determine_params(self.tree, self.sample)
             print(f"Registering node {leaf_node.node_index}...")
             print(leaf_node.parameters)
