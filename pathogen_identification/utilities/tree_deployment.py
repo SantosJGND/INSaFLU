@@ -115,6 +115,10 @@ class Tree_Node:
 
         self.software_tree_pk = software_tree_pk
 
+        print("Initializing Tree_Node with parameters...")
+        print(pipe_tree.nodes_df)
+        print(self.node_index)
+
         self.parameters = self.determine_params(pipe_tree, sample)
         self.leaves = pipe_tree.leaves_from_node_using_graph(node_index)
 
