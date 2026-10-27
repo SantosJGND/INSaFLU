@@ -689,9 +689,9 @@ class SampleTableOne(tables.Table):
         """
         return number of running processes in this project"""
 
-        queued = ParameterSet.objects.filter(
-            sample=record, project=record.project, status=ParameterSet.STATUS_QUEUED
-        ).count()
+        #queued = ParameterSet.objects.filter(
+        #    sample=record, project=record.project, status=ParameterSet.STATUS_QUEUED
+        #).count()
 
         mapping_runs = RunMain.objects.filter(
             sample=record,
@@ -701,11 +701,15 @@ class SampleTableOne(tables.Table):
                 RunMain.RUN_TYPE_MAP_REQUEST,
                 RunMain.RUN_TYPE_PANEL_MAPPING,
             ],
+            status__in=[
+                RunMain.STATUS_DEFAULT,
+                RunMain.STATUS_PREP,
+                RunMain.STATUS_QUEUED,
+            ],
         ).count()
 
-        queued += mapping_runs
 
-        return queued
+        return mapping_runs
 
     def render_mapping_runs(self, record):
         """
