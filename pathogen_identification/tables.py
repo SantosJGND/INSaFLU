@@ -695,12 +695,7 @@ class SampleTableOne(tables.Table):
 
         mapping_runs = RunMain.objects.filter(
             sample=record,
-            run_type__in=[
-                RunMain.RUN_TYPE_MAP_REQUEST,
-                RunMain.RUN_TYPE_COMBINED_MAPPING,
-                RunMain.RUN_TYPE_MAP_REQUEST,
-                RunMain.RUN_TYPE_PANEL_MAPPING,
-            ],
+            run_type__in=RunMain.RUN_TYPE_MAPPINGS,
             status__in=[
                 RunMain.STATUS_DEFAULT,
                 RunMain.STATUS_PREP,
@@ -719,13 +714,7 @@ class SampleTableOne(tables.Table):
         return RunMain.objects.filter(
             sample__name=record.name,
             project=record.project,
-            run_type__in=[
-                RunMain.RUN_TYPE_MAP_REQUEST,
-                RunMain.RUN_TYPE_COMBINED_MAPPING,
-                RunMain.RUN_TYPE_MAP_REQUEST,
-                RunMain.RUN_TYPE_PANEL_MAPPING,
-                RunMain.RUN_TYPE_CONTROL_MAPPING,
-            ],
+            run_type__in=RunMain.RUN_TYPE_MAPPINGS,
             status__in=[
                 RunMain.STATUS_DEFAULT,
                 RunMain.STATUS_RUNNING,

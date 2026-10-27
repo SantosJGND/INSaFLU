@@ -1152,13 +1152,12 @@ class FinalReportCompound:
         strings_return = []
 
         for ref in references_found_in:
+            if ref.run is None or ref.run.parameter_set is None or ref.run.parameter_set.leaf is None:
+                continue
 
             index_string = f"{ref.run.parameter_set.leaf.software_tree.global_index}-{ref.run.parameter_set.leaf.id_str}"
 
-            if ref.run.run_type in [
-                RunMain.RUN_TYPE_MAP_REQUEST,
-                RunMain.RUN_TYPE_PANEL_MAPPING,
-            ]:
+            if ref.run.run_type in RunMain.RUN_TYPE_MAPPINGS:
                 index_string = "r" + index_string
 
             if ref.run == report.run:

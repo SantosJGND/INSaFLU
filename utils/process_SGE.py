@@ -12,11 +12,10 @@ from django.contrib.auth.models import User
 from django.db import transaction
 
 from constants.constants import Constants, FileExtensions, TypePath
-from extend_user.models import Profile
 from managing_files.models import ProcessControler
 from pathogen_identification.constants_settings import \
     ConstantsSettings as PICS
-from pathogen_identification.models import PIProject_Sample
+from pathogen_identification.models import PIProject_Sample, SoftwareTreeNode
 from utils.utils import Utils
 
 
@@ -1602,10 +1601,12 @@ class ProcessSched(object):
                 sample_pk=sample_pk, leaf_pk=leaf_pk
             ),
         ]
+
         for register in batch_runs:
             names_processes.append(
                 process_controler.get_name_televir_project_sample(register.batch.pk, sample_pk)
             )
+        
 
         processes = ProcessControler.objects.filter(
             owner__id=user_pk,
@@ -1618,7 +1619,7 @@ class ProcessSched(object):
 
     @transaction.atomic
     def kill_televir_process_controler_samples(
-        self, user_pk: int, project_pk: int, sample_pk: int, leaf_pk: int
+        self, user_pk: int, sample_pk: int, leaf_pk: int
     ):
         """
         Kill the process in process controler.

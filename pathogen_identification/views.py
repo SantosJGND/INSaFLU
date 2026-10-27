@@ -1564,12 +1564,7 @@ class Sample_main(BaseBreadcrumbMixin, LoginRequiredMixin, generic.CreateView):
                     ParameterSet.STATUS_RUNNING,
                     ParameterSet.STATUS_ERROR,
                 ],
-                run_type__in=[
-                    RunMain.RUN_TYPE_MAP_REQUEST,
-                    RunMain.RUN_TYPE_COMBINED_MAPPING,
-                    RunMain.RUN_TYPE_PANEL_MAPPING,
-                    RunMain.RUN_TYPE_CONTROL_MAPPING
-                ],
+                run_type__in=RunMain.RUN_TYPE_MAPPINGS,
                 status__in=[
                     RunMain.STATUS_DEFAULT,
                     RunMain.STATUS_RUNNING,

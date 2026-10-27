@@ -20,6 +20,7 @@ from pkg_resources import packaging
 from constants.constants import Constants
 from constants.constants import \
     Televir_Directory_Constants as Televir_Directories
+from constants.constants_taxonomy import TaxonConstants
 from managing_files.models import Project as InsaFluProject
 from managing_files.models import Reference as InsaFluReference
 from managing_files.models import Sample
@@ -27,8 +28,8 @@ from pathogen_identification.constants_settings import \
     ConstantsSettings as PICS
 from pathogen_identification.data_classes import IntermediateFiles
 from settings.constants_settings import ConstantsSettings as CS
-from constants.constants_taxonomy import TaxonConstants
 from utils.utils import PathUtils
+
 # Create your models here.
 
 no_space_validator = RegexValidator(
@@ -776,6 +777,13 @@ class RunMain(models.Model):
     RUN_TYPE_COMBINED_MAPPING = 4
     RUN_TYPE_PANEL_MAPPING = 5
     RUN_TYPE_CONTROL_MAPPING = 6
+
+    RUN_TYPE_MAPPINGS = [
+        RUN_TYPE_MAP_REQUEST,
+        RUN_TYPE_COMBINED_MAPPING,
+        RUN_TYPE_PANEL_MAPPING,
+        RUN_TYPE_CONTROL_MAPPING,
+    ]
 
     STATUS_DEFAULT = 0
     STATUS_PREP = 1
@@ -2385,6 +2393,8 @@ class ReportAggregate(models.Model):
 
 
 from dataclasses import dataclass
+
+
 @dataclass
 class TaxonEmpty: 
     name: str = "None"

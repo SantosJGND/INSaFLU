@@ -1224,9 +1224,19 @@ def kill_televir_project_tree_sample(request):
 
                 if single_run_param.status == ParameterSet.STATUS_RUNNING:
                     single_run_param.delete_run_data()
+                
+                single_run_param.status = ParameterSet.STATUS_KILLED
+                single_run_param.save()
+
+                runs = RunMain.objects.filter(
+                    sample=sample, leaf=single_run_param.leaf
+                )
+                for run in runs:
+                    run.status = RunMain.STATUS_KILLED
+                    run.save()
 
                 process_SGE.kill_televir_process_controler_samples(
-                    user.pk, project.pk, sample.pk, single_run_param.leaf.pk
+                    user.pk, sample.pk, single_run_param.leaf.pk
                 )
                 killed += 1
 
@@ -1294,9 +1304,19 @@ def kill_televir_project_all_sample(request):
 
                     if single_run_param.status == ParameterSet.STATUS_RUNNING:
                         single_run_param.delete_run_data()
+                    
+                    single_run_param.status = ParameterSet.STATUS_KILLED
+                    single_run_param.save()
+
+                    runs = RunMain.objects.filter(
+                        sample=sample, leaf=single_run_param.leaf
+                    )
+                    for run in runs:
+                        run.status = RunMain.STATUS_KILLED
+                        run.save()
 
                     process_SGE.kill_televir_process_controler_samples(
-                        user.pk, project.pk, sample.pk, single_run_param.leaf.pk
+                        user.pk, sample.pk, single_run_param.leaf.pk
                     )
                     killed += 1
 
