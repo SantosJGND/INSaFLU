@@ -14,7 +14,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.core.files.temp import NamedTemporaryFile
 from django.db import transaction
-from django.db.models import Q, Count
+from django.db.models import Q
 from django.http import (FileResponse, Http404, HttpResponse,
                          HttpResponseNotFound, HttpResponseRedirect,
                          JsonResponse)
@@ -63,7 +63,6 @@ from pathogen_identification.tables import (AddedReferenceTable,
                                             CompoundReferenceScore,
                                             ContigTable, ProjectTable,
                                             RawReferenceTable,
-                                            RawReferenceTable_Basic,
                                             ReferenceSourceFileTable,
                                             ReferenceSourceTable, RunMainTable,
                                             RunMappingTable, SampleTableOne,
@@ -84,13 +83,14 @@ from pathogen_identification.utilities.utilities_general import (
 from pathogen_identification.utilities.utilities_pipeline import (
     Parameter_DB_Utility, SoftwareTreeUtils)
 from pathogen_identification.utilities.utilities_views import (
-    EmptyRemapMain, RawReferenceUtils, ReportAggregateEmpty, ReportList, SampleReferenceManager,
-    RunMainWrapper, SampleReadsRetrieve, recover_assembly_contigs)
+    EmptyRemapMain, RawReferenceUtils, ReportAggregateEmpty, ReportList,
+    RunMainWrapper, SampleReadsRetrieve, SampleReferenceManager,
+    recover_assembly_contigs)
 from settings.constants_settings import ConstantsSettings as CS
 from utils.process_SGE import ProcessSched
 from utils.software import Software
 from utils.support_django_template import get_link_for_dropdown_item
-from utils.utils import ShowInfoMainPage, Utils, PathUtils
+from utils.utils import PathUtils, ShowInfoMainPage, Utils
 
 
 def remove_pre_static(path: str) -> str:
@@ -2740,9 +2740,9 @@ class Sample_detail(BaseBreadcrumbMixin, LoginRequiredMixin, generic.CreateView)
         #####
         run_detail = RunDetail.objects.get(sample=sample_main, run=run_main_pipeline)
         #
+        from pathogen_identification.models import TelevirRunQcStack
         from pathogen_identification.utilities.utilities_pipeline import \
             Utils_Manager
-        from pathogen_identification.models import TelevirRunQcStack
 
         utils_manager = Utils_Manager()
         params_df = utils_manager.get_leaf_parameters(

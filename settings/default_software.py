@@ -1064,6 +1064,15 @@ class DefaultSoftware(object):
                 pipeline_step__name=vect_parameters[0].software.pipeline_step,
             )
 
+            print("Parameters found for software:", software_name, ":", vect_parameters)
+            for parameter in vect_parameters:
+                print(parameter)
+                if not Parameter.objects.filter(
+                    software=software_queried, name=parameter.name
+                ).exists():
+                    self.default_parameters.persist_parameters([parameter], software=software_queried)
+                    break
+
         except Software.MultipleObjectsReturned:
             ## keep the first one, delete the rest
             print("Multiple software found for:", software_name)
@@ -1099,7 +1108,7 @@ class DefaultSoftware(object):
                     software.delete()
 
         except Software.DoesNotExist:  ### if not exist save it
-            self.default_parameters.persist_parameters(vect_parameters, type_of_use)
+            self.default_parameters.persist_parameters(vect_parameters)
 
     def test_default_persist_specific(
         self, software_name, vect_parameters, user, name_extended, type_of_use
@@ -1147,7 +1156,7 @@ class DefaultSoftware(object):
                     pass
 
         except Software.DoesNotExist:
-            self.default_parameters.persist_parameters(vect_parameters, type_of_use)
+            self.default_parameters.persist_parameters(vect_parameters)
 
     def get_trimmomatic_parameters(self, user):
         result = self.default_parameters.get_parameters_parsed(
@@ -1731,159 +1740,44 @@ class DefaultSoftware(object):
 
         """
         if software_name == SoftwareNames.SOFTWARE_TRIMMOMATIC_name:
-            self.test_default_db(
-                SoftwareNames.SOFTWARE_TRIMMOMATIC_name,
-                self.default_parameters.get_trimmomatic_default(
-                    user, Software.TYPE_OF_USE_qc, ConstantsSettings.TECHNOLOGY_illumina
-                ),
-                user,
-            )
             return self.get_trimmomatic_parameters(user)
 
         if software_name == SoftwareNames.SOFTWARE_IVAR_name:
-            self.test_default_db(
-                SoftwareNames.SOFTWARE_IVAR_name,
-                self.default_parameters.get_ivar_default(
-                    user,
-                    Software.TYPE_OF_USE_global,
-                    ConstantsSettings.TECHNOLOGY_illumina,
-                    pipeline_step=ConstantsSettings.PIPELINE_NAME_variant_detection,
-                ),
-                user,
-                SoftwareNames.SOFTWARE_IVAR_name_extended,
-            )
             return self.get_ivar_parameters(user)
 
         if software_name == SoftwareNames.SOFTWARE_IRMA_name:
-            self.test_default_db(
-                SoftwareNames.SOFTWARE_IRMA_name,
-                self.default_parameters.get_irma_default(
-                    user,
-                    Software.TYPE_OF_USE_global,
-                    ConstantsSettings.TECHNOLOGY_illumina,
-                ),
-                user,
-                SoftwareNames.SOFTWARE_IRMA_name_extended,
-            )
             return self.get_irma_parameters(user)
 
         if software_name == SoftwareNames.SOFTWARE_SNIPPY_name:
-
-            self.test_default_db(
-                SoftwareNames.SOFTWARE_SNIPPY_name,
-                self.default_parameters.get_snippy_default(
-                    user,
-                    Software.TYPE_OF_USE_global,
-                    ConstantsSettings.TECHNOLOGY_illumina,
-                    pipeline_step=ConstantsSettings.PIPELINE_NAME_variant_detection,
-                ),
-                user,
-                SoftwareNames.SOFTWARE_SNIPPY_name_extended,
-            )
-
             return self.get_snippy_parameters(user)
 
         if software_name == SoftwareNames.SOFTWARE_FREEBAYES_name:
-            self.test_default_db(
-                SoftwareNames.SOFTWARE_FREEBAYES_name,
-                self.default_parameters.get_freebayes_default(
-                    user,
-                    Software.TYPE_OF_USE_global,
-                    ConstantsSettings.TECHNOLOGY_illumina,
-                ),
-                user,
-            )
-
             return self.get_freebayes_parameters(user)
+        
         if software_name == SoftwareNames.INSAFLU_PARAMETER_MASK_CONSENSUS_name:
-            self.test_default_db(
-                SoftwareNames.INSAFLU_PARAMETER_MASK_CONSENSUS_name,
-                self.default_parameters.get_mask_consensus_threshold_default(
-                    user, Software.TYPE_OF_USE_global, technology_name
-                ),
-                user,
-            )
             return self.get_mask_consensus_threshold_parameters(user, technology_name)
+        
         if software_name == SoftwareNames.SOFTWARE_CLEAN_HUMAN_READS_name:
-            self.test_default_db(
-                SoftwareNames.SOFTWARE_CLEAN_HUMAN_READS_name,
-                self.default_parameters.get_clean_human_reads_default(
-                    user, Software.TYPE_OF_USE_global, technology_name
-                ),
-                user,
-            )
             return self.get_clean_human_reads_parameters(user, technology_name)
 
         if software_name == SoftwareNames.SOFTWARE_NanoFilt_name:
-            self.test_default_db(
-                SoftwareNames.SOFTWARE_NanoFilt_name,
-                self.default_parameters.get_nanofilt_default(
-                    user,
-                    Software.TYPE_OF_USE_qc,
-                    ConstantsSettings.TECHNOLOGY_minion,
-                ),
-                user,
-            )
             return self.get_nanofilt_parameters(user)
+        
         if software_name == SoftwareNames.SOFTWARE_Medaka_name_consensus:
-            self.test_default_db(
-                SoftwareNames.SOFTWARE_Medaka_name_consensus,
-                self.default_parameters.get_medaka_model_default(
-                    user,
-                    Software.TYPE_OF_USE_global,
-                    ConstantsSettings.TECHNOLOGY_minion,
-                ),
-                user,
-            )
             return self.get_medaka_parameters_consensus(user)
+        
         if software_name == SoftwareNames.SOFTWARE_SAMTOOLS_name_depth_ONT:
-            self.test_default_db(
-                software_name,
-                self.default_parameters.get_samtools_depth_default_ONT(
-                    user,
-                    Software.TYPE_OF_USE_global,
-                    ConstantsSettings.TECHNOLOGY_minion,
-                ),
-                user,
-            )
             return self.get_samtools_parameters_depth_ONT(user)
+
         if software_name == SoftwareNames.INSAFLU_PARAMETER_LIMIT_COVERAGE_ONT_name:
-            self.test_default_db(
-                SoftwareNames.INSAFLU_PARAMETER_LIMIT_COVERAGE_ONT_name,
-                self.default_parameters.get_limit_coverage_ONT_threshold_default(
-                    user,
-                    Software.TYPE_OF_USE_global,
-                    ConstantsSettings.TECHNOLOGY_minion,
-                ),
-                user,
-            )
             return self.get_limit_coverage_ONT_parameters(user)
         if software_name == SoftwareNames.INSAFLU_PARAMETER_VCF_FREQ_ONT_name:
-            self.test_default_db(
-                SoftwareNames.INSAFLU_PARAMETER_VCF_FREQ_ONT_name,
-                self.default_parameters.get_vcf_freq_ONT_threshold_default(
-                    user,
-                    Software.TYPE_OF_USE_global,
-                    ConstantsSettings.TECHNOLOGY_minion,
-                ),
-                user,
-            )
             return self.get_vcf_freq_ONT_parameters(user)
+
         if software_name == SoftwareNames.SOFTWARE_ABRICATE_name:
-            self.test_default_db(
-                SoftwareNames.SOFTWARE_ABRICATE_name,
-                self.default_parameters.get_abricate_default(
-                    user, Software.TYPE_OF_USE_qc, technology_name
-                ),
-                user,
-            )
             return self.get_abricate_parameters(user, technology_name)
+
         if software_name == SoftwareNames.SOFTWARE_NEXTSTRAIN_name:
-            self.test_default_db(
-                SoftwareNames.SOFTWARE_NEXTSTRAIN_name,
-                self.default_parameters.get_nextstrain_default(user),
-                user,
-            )
             return self.get_nextstrain_parameters(user)
 
         ################################################

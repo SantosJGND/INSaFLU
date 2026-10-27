@@ -145,7 +145,7 @@ def add_dataset_name(request):
                     for parameter in vect_parameters:
                         parameter.parameter = request.GET["build"]
                 default_parameters.persist_parameters(
-                    vect_parameters, type_of_use=Software.TYPE_OF_USE_dataset
+                    vect_parameters
                 )
 
             except Exception as e:

@@ -7,13 +7,13 @@ from Bio import SeqIO
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.core.files.temp import NamedTemporaryFile
+from django.db.models.query import QuerySet
 from django.http import JsonResponse
 from django.template.loader import render_to_string
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_POST
-from django.db.models.query import QuerySet
 
 from constants.constants import Constants, FileType, TypePath
 from fluwebvirus.settings import BASE_DIR, STATIC_ROOT, STATIC_URL
@@ -92,9 +92,10 @@ def get_project_checked_boxes(request, project_pk):
 
 @login_required
 @require_POST
-def submit_sample_metagenomics_televir(request):
+def submit_sample_televir_combined_mapping(request):
+    data = {"is_ok": False, "is_deployed": False, "no_references": False}
+
     if request.headers.get("x-requested-with") == "XMLHttpRequest":
-        data = {"is_ok": False, "is_deployed": False, "no_references": False}
 
         process_SGE = ProcessSched()
 
@@ -103,9 +104,6 @@ def submit_sample_metagenomics_televir(request):
 
         user = sample.project.owner
         project = sample.project
-
-        ####
-        ####
 
         software_utils = SoftwareTreeUtils(user, project, sample=sample)
         runs_to_deploy = software_utils.check_runs_to_submit_metagenomics_sample(sample)
@@ -137,8 +135,8 @@ def submit_sample_metagenomics_televir(request):
             print(e)
             data["is_deployed"] = False
 
-        data["is_ok"] = True
-        return JsonResponse(data)
+    data["is_ok"] = True
+    return JsonResponse(data)
 
 
 @login_required
@@ -277,11 +275,11 @@ def deploy_remap(
                 references_mapped_dict[added_reference.accid].extend(
                     list(ref_workflows)
                 )
-            else:
+            elif added_reference.accid is not None:
                 references_mapped_dict[added_reference.accid] = list(ref_workflows)
 
-    software_utils = SoftwareTreeUtils(user, project, sample=sample)
-    runs_to_deploy, workflow_deployed_dict = (
+    software_utils = SoftwareTreeUtils(user, sample.project, sample=sample)
+    runs_to_deploy, _workflow_deployed_dict = (
         software_utils.check_runs_to_submit_mapping_only(sample)
     )
 
@@ -290,97 +288,92 @@ def deploy_remap(
 
     try:
 
-        if len(runs_to_deploy) > 0:
-            deployed = 0
-            deployed_refs = {
-                sample: {
-                    leaf: {"deployed": [], "not_deployed": []}
-                    for leaf in runs_to_deploy[sample]
-                }
-                for sample in runs_to_deploy
-            }
-            for sample, leaves_to_deploy in runs_to_deploy.items():
+        deployed = 0
+        deployed_refs = {
+            leaf: {"deployed": [], "not_deployed": []}
+                for leaf in runs_to_deploy[sample]
+        }
+        leaves_to_deploy = runs_to_deploy.get(sample, [])
 
-                reference_utils = RawReferenceUtils(sample)
+        reference_utils = RawReferenceUtils(sample)
 
-                count_references = (
-                    reference_utils.query_sample_compound_references_regressive()
-                )
+        count_references = (
+            reference_utils.query_sample_compound_references_regressive()
+        )
 
-                if count_references.exists() is False:
-                    continue
+        if count_references.exists() is False:
+            return data
 
-                for leaf in leaves_to_deploy:
+        for leaf in leaves_to_deploy:
 
-                    references_added = []
-                    references_to_add: List[RawReference] = []
+            references_added = []
+            references_to_add: List[RawReference] = []
 
-                    for reference_id in reference_id_list:
-                        reference = RawReference.objects.get(pk=int(reference_id))
-                        if reference.accid in references_mapped_dict:
-                            if leaf.pk in references_mapped_dict[reference.accid]:
-                                deployed_refs[sample][leaf]["not_deployed"].append(
-                                    reference.accid
-                                )
-                                continue
-
-                        references_to_add.append(reference)
-                        reference.save()
-
-                        references_added.append(reference.accid)
-
-                    for added_reference in added_references:
-                        if added_reference.accid in references_mapped_dict:
-                            if (
-                                leaf.index
-                                in references_mapped_dict[added_reference.accid]
-                            ):
-                                deployed_refs[sample][leaf]["not_deployed"].append(
-                                    added_reference.accid
-                                )
-                                continue
-                        added_reference.pk = None
-
-                        references_to_add.append(added_reference)
-                        references_added.append(added_reference.accid)
-
-                    if len(references_added) == 0:
+            for reference_id in reference_id_list:
+                reference = RawReference.objects.get(pk=int(reference_id))
+                if reference.accid in references_mapped_dict:
+                    if leaf.pk in references_mapped_dict[reference.accid]:
+                        deployed_refs[leaf]["not_deployed"].append(
+                            reference.accid
+                        )
                         continue
 
-                    mapping_run = reference_manager.mapping_request_run_from_leaf(leaf)
-                    for reference in references_to_add:
-                        reference.pk = None
-                        reference.run = mapping_run
-                        reference.save()
+                references_to_add.append(reference)
+                reference.save()
 
-                    taskID = process_SGE.set_submit_televir_sample_metagenomics(
-                        user=user,
-                        sample_pk=sample.pk,
-                        leaf_pk=leaf.pk,
-                        mapping_request=True,
-                        map_run_pk=mapping_run.pk,
-                    )
-                    deployed += 1
-                    deployed_refs[sample][leaf]["deployed"] = references_added
+                references_added.append(reference.accid)
 
-            data["is_deployed"] = True
-            message = f"Sample {sample.name}, deployed {deployed} run{['', 's'][int(deployed != 1)]}. "
-            total_runs_deployed = 0
+            for added_reference in added_references:
+                if added_reference.accid in references_mapped_dict:
+                    if (
+                        leaf.index
+                        in references_mapped_dict[added_reference.accid]
+                    ):
+                        deployed_refs[leaf]["not_deployed"].append(
+                            added_reference.accid
+                        )
+                        continue
+                added_reference.pk = None
 
-            for sample, leaves_to_deploy in runs_to_deploy.items():
-                for leaf in leaves_to_deploy:
-                    if len(deployed_refs[sample][leaf]["deployed"]) > 0:
-                        message += f"Leaf {leaf.tree_index}, deployed references: {', '.join(deployed_refs[sample][leaf]['deployed'])}. "
-                        total_runs_deployed += 1
+                references_to_add.append(added_reference)
+                references_added.append(added_reference.accid)
 
-                    if len(deployed_refs[sample][leaf]["not_deployed"]) > 0:
-                        message += f"References: {', '.join(deployed_refs[sample][leaf]['not_deployed'])} already mapped for Leaf {leaf.tree_index}. "
+            if len(references_added) == 0:
+                continue
 
-            if total_runs_deployed == 0:
-                data["is_deployed"] = False
+            mapping_run = reference_manager.mapping_request_run_from_leaf(leaf)
+            for reference in references_to_add:
+                reference.pk = None
+                reference.run = mapping_run
+                reference.save()
 
-            data["message"] = message
-            data["is_ok"] = True
+            _taskID = process_SGE.set_submit_televir_sample_metagenomics(
+                user=user,
+                sample_pk=sample.pk,
+                leaf_pk=leaf.pk,
+                mapping_request=True,
+                map_run_pk=mapping_run.pk,
+            )
+            deployed += 1
+            deployed_refs[leaf]["deployed"] = references_added
+
+        data["is_deployed"] = True
+        message = f"Sample {sample.name}, deployed {deployed} run{['', 's'][int(deployed != 1)]}. "
+        total_runs_deployed = 0
+
+        for leaf in leaves_to_deploy:
+            if len(deployed_refs[leaf]["deployed"]) > 0:
+                message += f"Leaf {leaf.tree_index}, deployed references: {', '.join(deployed_refs[leaf]['deployed'])}. "
+                total_runs_deployed += 1
+
+            if len(deployed_refs[leaf]["not_deployed"]) > 0:
+                message += f"References: {', '.join(deployed_refs[leaf]['not_deployed'])} already mapped for Leaf {leaf.tree_index}. "
+
+        if total_runs_deployed == 0:
+            data["is_deployed"] = False
+
+        data["message"] = message
+        data["is_ok"] = True
 
     except Exception as e:
         print(e)

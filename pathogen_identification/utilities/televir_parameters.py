@@ -83,7 +83,7 @@ class TelevirParameters:
 
 
     @staticmethod
-    def retrieve_project_software(software_name: str, project: Projects):
+    def retrieve_project_settings_software(software_name: str, project: Projects):
         """
         Retrieve software parameters for a project
         """
@@ -132,7 +132,7 @@ class TelevirParameters:
 
         project = Projects.objects.get(pk=project_pk)
 
-        remap_params, _ = TelevirParameters.retrieve_project_software(
+        remap_params, _ = TelevirParameters.retrieve_project_settings_software(
             SoftwareNames.SOFTWARE_REMAP_PARAMS_name, project
         )
 
@@ -217,7 +217,7 @@ class TelevirParameters:
         (
             flag_build_params,
             _,
-        ) = TelevirParameters.retrieve_project_software(
+        ) = TelevirParameters.retrieve_project_settings_software(
             SoftwareNames.SOFTWARE_televir_report_layout_name, project
         )
 
@@ -238,7 +238,7 @@ class TelevirParameters:
         (
             remap_params,
             _,
-        ) = TelevirParameters.retrieve_project_software(
+        ) = TelevirParameters.retrieve_project_settings_software(
             SoftwareNames.SOFTWARE_REMAP_PARAMS_name, project
         )
 
@@ -264,7 +264,7 @@ class TelevirParameters:
         (
             remap_params,
             _,
-        ) = TelevirParameters.retrieve_project_software(
+        ) = TelevirParameters.retrieve_project_settings_software(
             SoftwareNames.SOFTWARE_REMAP_PARAMS_name, project
         )
 
@@ -276,6 +276,31 @@ class TelevirParameters:
                     clustering_model = param.parameter
 
         return clustering_model
+    
+    @staticmethod
+    def get_report_filters(project_pk: Optional[int] = None) -> Optional[List[str]]:
+        """
+        Get report filters
+        """
+        if project_pk is None:
+            return None
+        project = Projects.objects.get(pk=project_pk)
+
+        (
+            report_params,
+            _,
+        ) = TelevirParameters.retrieve_project_settings_software(
+            SoftwareNames.SOFTWARE_televir_report_layout_name, project
+        )
+
+        report_filters = None
+
+        for param in report_params:
+            if param.name == SoftwareNames.SOFTWARE_televir_report_description_filters:
+                if param.parameter is not None:
+                    report_filters = param.parameter.split(";")
+
+        return report_filters
 
     @staticmethod
     def get_report_layout_params(
@@ -298,7 +323,7 @@ class TelevirParameters:
         (
             layout_params,
             _,
-        ) = TelevirParameters.retrieve_project_software(
+        ) = TelevirParameters.retrieve_project_settings_software(
             SoftwareNames.SOFTWARE_televir_report_layout_name, project
         )
 

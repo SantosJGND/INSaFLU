@@ -864,6 +864,7 @@ class SettingsView(BaseBreadcrumbMixin, LoginRequiredMixin, ListView):
 
 
 def bowtie_post_process(form, software: Software):
+    print(software)
     if software.name != SoftwareNames.SOFTWARE_BOWTIE2_REMAP_name:
         return form
 

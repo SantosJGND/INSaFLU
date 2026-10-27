@@ -1,12 +1,9 @@
 import itertools as it
 import logging
 import os
-import re as _re
-import shutil
 import subprocess
 import tempfile
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from collections import Counter
 from typing import Any, Dict, List, Optional, Tuple
 
 import matplotlib.pyplot as plt
@@ -16,15 +13,13 @@ import seaborn as sns
 from Bio import Phylo
 from Bio.Phylo.TreeConstruction import DistanceMatrix, DistanceTreeConstructor
 from scipy.spatial.distance import pdist, squareform
-from scipy.stats import entropy as scipy_entropy
 
 from pathogen_identification.utilities.clade_objects import Clade, CladeFilter
 from pathogen_identification.utilities.phylo_tree import PhyloTreeManager
+
 ## pairwise matrix by individual reads
 
-from collections import Counter
 
-import numpy as np
 
 
 def shannon_diversity(proportions: list[float]) -> float:
@@ -1456,8 +1451,6 @@ class ReadOverlapManager(MappingResultsParser):
     ) -> Tuple[Optional[bool], float]:
         try:
             client = self._ml_client() 
-            print(f"Using ML model: {model_type}")
-            print(features)
             result = client.predict_composition_stop_traversal(features, model=model_type)
             return bool(result["stop_traversal"]), float(result.get("probability", 0.0))
         except Exception:
@@ -1580,7 +1573,8 @@ class ReadOverlapManager(MappingResultsParser):
 
     def predict_clades_composition(self, model_type: str) -> pd.DataFrame:
         accid_df = self._get_accid_statistics()
-        from pathogen_identification.modules.metadata_handler import RunMetadataHandler
+        from pathogen_identification.modules.metadata_handler import \
+            RunMetadataHandler
         accid_df['taxid'] = accid_df['accid'].apply(lambda x: RunMetadataHandler.get_accid_taxid(x) if pd.notnull(x) else None)
         accid_df['family'] = accid_df['taxid'].apply(lambda x: RunMetadataHandler._get_taxid_taxonomy(x, 'family') if pd.notnull(x) else None)
         accid_df['order'] = accid_df['taxid'].apply(lambda x: RunMetadataHandler._get_taxid_taxonomy(x, 'order') if pd.notnull(x) else None)

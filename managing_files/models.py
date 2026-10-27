@@ -2006,8 +2006,8 @@ class ProcessControler(models.Model):
             ProcessControler.PREFIX_TELEVIR_RUN_BATCH, batch_pk, sample_pk
         )
 
-    def get_name_televir_project_sample_metagenomics_run(self, sample_pk, leaf_pk):
-        return "{}_combined_metagen_{}_{}".format(
+    def get_name_televir_sample_mapping(self, sample_pk, leaf_pk):
+        return "{}_televir_mapping_{}_{}".format(
             ProcessControler.PREFIX_TELEVIR_PROJECT, sample_pk, leaf_pk
         )
 
@@ -2019,11 +2019,6 @@ class ProcessControler(models.Model):
     def get_name_televir_project_sample_control_map(self, sample_pk, leaf_pk):
         return "{}_televir_control_map_{}_{}".format(
             ProcessControler.PREFIX_TELEVIR_PROJECT, sample_pk, leaf_pk
-        )
-
-    def get_name_televir_project_sample_metagenomics(self, sample_pk):
-        return "{}_combined_metagen_{}".format(
-            ProcessControler.PREFIX_TELEVIR_PROJECT, sample_pk
         )
 
     def get_name_televir_project_sample_sort(self, sample_pk):
@@ -2082,11 +2077,6 @@ class ProcessControler(models.Model):
     def get_name_televir_project_merge_explify_external(self, user_pk):
         return "{}_report_merge_explify_EXT_{}".format(
             ProcessControler.PREFIX_TELEVIR_PROJECT, user_pk
-        )
-
-    def get_name_televir_run(self, project_pk, sample_pk, leaf_pk) -> str:
-        return "{}{}_sample_{}_leaf_{}".format(
-            ProcessControler.PREFIX_TELEVIR_PROJECT, project_pk, sample_pk, leaf_pk
         )
 
     def get_name_televir_map(self, reference_pk):

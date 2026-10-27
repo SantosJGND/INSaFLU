@@ -701,11 +701,6 @@ class SampleTableOne(tables.Table):
                 RunMain.RUN_TYPE_MAP_REQUEST,
                 RunMain.RUN_TYPE_PANEL_MAPPING,
             ],
-            parameter_set__status__in=[
-                ParameterSet.STATUS_PROXIED,
-                ParameterSet.STATUS_QUEUED,
-                ParameterSet.STATUS_NOT_STARTED,
-            ],
         ).count()
 
         queued += mapping_runs

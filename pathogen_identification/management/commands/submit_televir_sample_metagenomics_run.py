@@ -103,7 +103,7 @@ class Command(BaseCommand):
 
         process_SGE.set_process_controler(
             user,
-            process_controler.get_name_televir_project_sample_metagenomics_run(
+            process_controler.get_name_televir_sample_mapping(
                 sample_pk=target_sample.pk,
                 leaf_pk=matched_path_node.pk,
             ),
@@ -179,7 +179,7 @@ class Command(BaseCommand):
 
             process_SGE.set_process_controler(
                 user,
-                process_controler.get_name_televir_project_sample_metagenomics_run(
+                process_controler.get_name_televir_sample_mapping(
                     sample_pk=target_sample.pk,
                     leaf_pk=matched_path_node.pk,
                 ),
@@ -192,7 +192,7 @@ class Command(BaseCommand):
 
             process_SGE.set_process_controler(
                 user,
-                process_controler.get_name_televir_project_sample_metagenomics_run(
+                process_controler.get_name_televir_sample_mapping(
                     sample_pk=target_sample.pk,
                     leaf_pk=matched_path_node.pk,
                 ),

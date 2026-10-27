@@ -6,7 +6,6 @@ import subprocess
 import time
 from datetime import datetime
 from typing import List, Optional
-from pathogen_identification.models import PIProject_Sample
 
 from django.conf import settings
 from django.contrib.auth.models import User
@@ -17,6 +16,7 @@ from extend_user.models import Profile
 from managing_files.models import ProcessControler
 from pathogen_identification.constants_settings import \
     ConstantsSettings as PICS
+from pathogen_identification.models import PIProject_Sample
 from utils.utils import Utils
 
 
@@ -1182,7 +1182,7 @@ class ProcessSched(object):
             if job_id != None:
                 self.set_process_controlers(
                     user,
-                    process_controler.get_name_televir_project_sample_metagenomics_run(
+                    process_controler.get_name_televir_sample_mapping(
                         sample_pk,
                         leaf_pk,
                     ),
@@ -1594,8 +1594,7 @@ class ProcessSched(object):
         batch_runs = sample.batch_registrations
         process_controler = ProcessControler()
         names_processes = [
-            process_controler.get_name_televir_run(project_pk, sample_pk, leaf_pk),
-            process_controler.get_name_televir_project_sample_metagenomics_run(
+            process_controler.get_name_televir_sample_mapping(
                 sample_pk,
                 leaf_pk,
             ),
@@ -1630,8 +1629,7 @@ class ProcessSched(object):
         batch_runs = sample.batch_registrations
 
         names_processes = [
-            process_controler.get_name_televir_run(project_pk, sample_pk, leaf_pk),
-            process_controler.get_name_televir_project_sample_metagenomics_run(
+            process_controler.get_name_televir_sample_mapping(
                 sample_pk,
                 leaf_pk,
             ),
@@ -1643,9 +1641,6 @@ class ProcessSched(object):
             names_processes.append(
                 process_controler.get_name_televir_project_sample(register.batch.pk, sample_pk)
             )
-        
-        print("names_processes", names_processes)
-
 
         processes = ProcessControler.objects.filter(
             owner__id=user_pk,

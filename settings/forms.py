@@ -156,7 +156,6 @@ class SoftwareForm(forms.ModelForm):
 
                         client = MLAPIClient()
                         models_recall= client.models_recall_cutoff()
-                        print(models_recall)
                         list_data = list_data + [
                             [
                                 c.get('model_type', ''), f"{c.get('description', '')} {c.get('date_trained', '')}"
@@ -188,7 +187,6 @@ class SoftwareForm(forms.ModelForm):
                 else:
                     list_data = [[parameter.parameter, parameter.parameter]]
                 
-                print("LIST DATA: ", list_data)
                 dt_fields[parameter.get_unique_id()] = forms.ChoiceField(
                     choices=list_data, widget=forms.RadioSelect
                 )
@@ -215,13 +213,17 @@ class SoftwareForm(forms.ModelForm):
                         )
                     ]
 
-
-
                 elif parameter.software.name == SoftwareNames.SOFTWARE_METAPHLAN_NAME:
                     list_data = [
                         [data_, data_]
                         for data_ in SoftwareNames.SOFTWARE_METAPHLAN_DB_options
                     ]
+                elif parameter.software.name == SoftwareNames.SOFTWARE_televir_report_layout_name:
+                    list_data = [
+                        [data_, data_]
+                        for data_ in SoftwareNames.SOFTWARE_televir_report_description_filters_default.split(";")
+                    ]
+                    
                 else:
                     raise Exception(
                         "Error: Software {} not implemented.".format(

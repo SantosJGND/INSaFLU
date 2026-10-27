@@ -15,7 +15,7 @@ from fluwebvirus.settings import MEDIA_URL, STATIC_ROOT
 from managing_files.models import Sample as INSaFLU_Sample
 from pathogen_identification.constants_settings import \
     ConstantsSettings as PIConstantsSettings
-from pathogen_identification.models import (ContigClassification, FinalReport, RawReferenceCompoundModel,
+from pathogen_identification.models import (ContigClassification, FinalReport,
                                             GroupReportData, ParameterSet,
                                             PIProject_Sample, Projects,
                                             RawReference,
@@ -23,8 +23,9 @@ from pathogen_identification.models import (ContigClassification, FinalReport, R
                                             ReadClassification,
                                             ReferenceMap_Main, ReferencePanel,
                                             ReferenceSourceFileMap,
-                                            ReportAggregate, ReportGroup,
-                                            RunAssembly, RunDetail, RunMain,
+                                            ReferenceTaxid, ReportAggregate,
+                                            ReportGroup, RunAssembly,
+                                            RunDetail, RunMain,
                                             RunReadsRegister, SoftwareTree,
                                             SoftwareTreeNode, TelevirRunQC)
 from pathogen_identification.utilities.clade_objects import Clade
@@ -37,8 +38,6 @@ from pathogen_identification.utilities.utilities_general import (
 from pathogen_identification.utilities.utilities_pipeline import Utils_Manager
 from settings.constants_settings import ConstantsSettings
 from settings.models import Parameter, Software
-
-
 
 
 class QCSoftware:
@@ -1542,6 +1541,7 @@ class ReportSorter:
         self.assess_max_mapped_prop()
         self.assess_max_coverage()
         self.reference_clade = self.generate_reference_clade(report_layout_params)
+        self.report_layout_params = report_layout_params
 
         self.report_dict = {}
         self.excluded_dict = {}
@@ -1556,13 +1556,6 @@ class ReportSorter:
 
         self.level = level
 
-        self.reports_available = len(reports) > 0
-
-        self.media_dir = sample.media_dir
-
-        self.metadata_df = self.prep_metadata_df()
-        self.fasta_files = self.metadata_df.file.tolist()
-
         self.clustering_model_type = TelevirParameters.get_clustering_model(self.sample.project.pk) 
 
         self.overlap_manager = ReadOverlapManager(
@@ -1575,43 +1568,104 @@ class ReportSorter:
             clustering_model_type=self.clustering_model_type,
         )
 
-        self.all_clades_df_path = os.path.join(self.media_dir, self.all_clade_filename)
+        self.metadata_df = self.prep_metadata_df()
+        self.fasta_files = self.metadata_df.file.tolist()
 
-        self.analysis_df_path = os.path.join(
-            self.media_dir,
-            self.analysis_filename.format(
-                report_layout_params.shared_proportion_threshold
-            ),
-        )
-
-        self.tree_plot_path = self.overlap_manager.tree_plot_path
-        #
-        self.tree_plot_exists = os.path.exists(self.tree_plot_path)
-        self.tree_plot_path = "/media/" + self.tree_plot_path.split("media/")[-1]
-
-        self.overlap_heatmap_exists = os.path.exists(
-            self.overlap_manager.overlap_matrix_plot_path
-        )
-        self.overlap_heatmap_path = (
-            "/media/"
-            + self.overlap_manager.overlap_matrix_plot_path.split("media/")[-1]
-        )
-        self.overlap_pca_exists = os.path.exists(
-            self.overlap_manager.overlap_pca_plot_path
-        )
-        self.overlap_pca_path = (
-            "/media/" + self.overlap_manager.overlap_pca_plot_path.split("media/")[-1]
-        )
+        self.reports_available = len(self.report_dict) > 0 or len(self.excluded_dict) > 0
+        self.fasta_files = self.metadata_df.file.tolist()
 
         #####################################
         #####################################
         self.logger = logging.getLogger(__name__)
         self.logger.info("ReportSorter: {}".format(self.media_dir))
         self.logger.setLevel(logging.DEBUG)
+
+
+    @property
+    def media_dir(self):
+        return self.sample.media_dir
+
+    @property
+    def all_clades_df_path(self):
+        return os.path.join(self.media_dir, self.all_clade_filename)
+
+    @property
+    def analysis_df_path(self):
+        return os.path.join(
+            self.media_dir,
+            self.analysis_filename.format(
+            self.report_layout_params.shared_proportion_threshold
+            ),
+        )
+
+    @property
+    def tree_plot_path(self):
+        path = self.overlap_manager.tree_plot_path
+        if os.path.exists(path):
+            return "/media/" + path.split("media/")[-1]
+        return path
+
+    @property
+    def tree_plot_exists(self):
+        return os.path.exists(self.overlap_manager.tree_plot_path)
+
+    @property
+    def overlap_heatmap_path(self):
+        path = self.overlap_manager.overlap_matrix_plot_path
+        if os.path.exists(path):
+            return "/media/" + path.split("media/")[-1]
+        return path
+
+    @property
+    def overlap_heatmap_exists(self):
+        return os.path.exists(self.overlap_manager.overlap_matrix_plot_path)
+
+    @property
+    def overlap_pca_path(self):
+        path = self.overlap_manager.overlap_pca_plot_path
+        if os.path.exists(path):
+            return "/media/" + path.split("media/")[-1]
+        return path
+
+    @property
+    def overlap_pca_exists(self):
+        return os.path.exists(self.overlap_manager.overlap_pca_plot_path)    
     
     @property
     def sort_performed(self):
         return self.analysis_empty == False
+
+    @property
+    def project(self):
+        if self.sample.project is None:
+            raise ValueError("Sample has no associated project.")
+        return self.sample.project
+    
+
+    def filter_reports(self, reports: List[FinalReport]):
+        """
+        Description filter based on settings flagsa"""
+        from django.db.models import Q
+
+        flags = TelevirParameters.get_report_filters(self.project.pk)
+
+        queries= []
+
+        if not flags:
+            return reports
+
+        for flag in flags:
+            queries.append(Q(description__icontains=flag))
+
+        if queries:
+            queries = Q(*queries, _connector=Q.OR)
+            reports = [report for report in reports if FinalReport.objects.filter(pk=report.pk).filter(queries).exists()]
+        
+        
+        return reports
+
+    
+        
 
     def build_tree(self):
         if self.reports_available:
@@ -1968,8 +2022,7 @@ class ReportSorter:
                 private_reads_available = True
                 break
 
-        from django.db import transaction
-        from pathogen_identification.models import ReferenceTaxid
+
 
         with transaction.atomic():
             report_aggregate = ReportAggregate.objects.create(
@@ -2406,7 +2459,44 @@ class ReportSorter:
 
         return report_group
 
- 
+
+def run_reference_overlap_analysis(sample: PIProject_Sample, parameter_set: ParameterSet):
+    final_reports = FinalReport.objects.filter(sample=sample).order_by(
+        "-coverage"
+    )
+    #
+    report_layout_params = TelevirParameters.get_report_layout_params(
+        project_pk=parameter_set.project.pk
+    )
+
+    if final_reports.exists() is False:
+        return
+
+
+    runs = RunMain.objects.filter(parameter_set=parameter_set).exclude(run_type=RunMain.RUN_TYPE_STORAGE)
+    
+    for run in runs:
+
+        final_reports_run = FinalReport.objects.filter(
+            sample=parameter_set.sample, run=run
+        ).order_by("-coverage")
+        #
+        report_sorter = ReportSorter(
+            parameter_set.sample, final_reports_run, report_layout_params
+        )
+        report_sorter.sort_reports_save()
+        report_sorter.reports_aggregate_register(report_layout_params, run)
+
+
+    final_reports = final_report_best_cov_by_accid(final_reports)
+    report_sorter = ReportSorter(
+        parameter_set.sample, final_reports, report_layout_params
+    )
+    report_sorter.build_tree()
+    report_sorter.sort_reports_save()
+    report_sorter.reports_aggregate_register(report_layout_params)
+
+
 def calculate_reports_overlaps(sample: PIProject_Sample, force=False):
     """
     calculate reports overlaps

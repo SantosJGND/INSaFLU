@@ -255,7 +255,6 @@ $('#request_map_selected').on("click", function(e){
 
   $('#submit-button').click(function() {
     var url = $('#submit-button').attr('href');
-    var reload_url = $('#submit-button').attr('reload_ref');
     var sample_id = $('#headingsample').attr('sample-id');
     var csrf_token = $('#headingsample').attr('data-csrf');
     var checkedRows = [];

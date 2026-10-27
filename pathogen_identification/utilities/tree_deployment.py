@@ -22,6 +22,7 @@ from pathogen_identification.models import (FinalReport, ParameterSet,
 from pathogen_identification.modules.object_classes import Remap_Target
 from pathogen_identification.modules.remap_class import Mapping_Instance
 from pathogen_identification.modules.run_main import RunMainTree_class
+from pathogen_identification.televir_pipeline_makeup import Pipeline_Makeup
 from pathogen_identification.utilities.televir_parameters import \
     TelevirParameters
 from pathogen_identification.utilities.update_DBs_tree import (
@@ -30,10 +31,10 @@ from pathogen_identification.utilities.update_DBs_tree import (
 from pathogen_identification.utilities.utilities_pipeline import (
     PipelineTree, Utils_Manager)
 from pathogen_identification.utilities.utilities_views import (
-    ReportSorter, final_report_best_cov_by_accid)
+    ReportSorter, final_report_best_cov_by_accid,
+    run_reference_overlap_analysis)
 from settings.constants_settings import ConstantsSettings
 from utils.utils import Utils
-from pathogen_identification.televir_pipeline_makeup import Pipeline_Makeup
 
 
 def logger_copy(x, memo):
@@ -115,47 +116,12 @@ class Tree_Node:
 
         self.software_tree_pk = software_tree_pk
 
-        print("Initializing Tree_Node with parameters...")
-        print(pipe_tree.nodes_df)
-        print(self.node_index)
-
         self.parameters = self.determine_params(pipe_tree, sample)
         self.leaves = pipe_tree.leaves_from_node_using_graph(node_index)
 
     def run_reference_overlap_analysis(self):
-        # run = RunMain.objects.filter(parameter_set=self.parameter_set).first()
-
-        report_layout_params = TelevirParameters.get_report_layout_params(
-            project_pk=self.parameter_set.project.pk
-        )
-
-        runs = RunMain.objects.filter(parameter_set=self.parameter_set).exclude(run_type=RunMain.RUN_TYPE_STORAGE)
-        
-        for run in runs:
-
-            final_report = FinalReport.objects.filter(
-                sample=self.parameter_set.sample, run=run
-            ).order_by("-coverage")
-            #
-            report_sorter = ReportSorter(
-                self.parameter_set.sample, final_report, report_layout_params
-            )
-            report_sorter.sort_reports_save()
-            report_sorter.reports_aggregate_register(report_layout_params, run)
-
-        final_reports = FinalReport.objects.filter(
-            sample=self.parameter_set.sample
-        ).order_by("-coverage")
-        final_reports = final_report_best_cov_by_accid(final_reports)
-
-        report_sorter = ReportSorter(
-            self.parameter_set.sample, final_reports, report_layout_params
-        )
-
-        report_sorter.build_tree()
-        report_sorter.sort_reports_save()
-        report_sorter.reports_aggregate_register(report_layout_params)
-
+        return run_reference_overlap_analysis(self.parameter_set.sample, self.parameter_set)
+    
     def receive_run_manager(self, run_manager: PathogenIdentification_TreeDeployment):
         run_manager.prefix = f"run_leaf_{self.node_index}"
         run_manager.configure_constants()
@@ -513,35 +479,23 @@ class Tree_Progress:
     def register_node_leaves(self, node: Tree_Node):
         if node.node_index in node.leaves:
             self.register_finished(node)
-
-        print(f"Registering leaves {node.leaves} for node {node.node_index}...")
-
+            
         for leaf in node.leaves:            
             leaf_node = self.spawn_node_child_prepped(node, leaf)
             leaf_node.branch = [x[0] for x in self.tree.paths_to_node(leaf_node.node_index)[0]]
-            print("PATHOS: ", self.tree.paths_to_node(leaf_node.node_index))
-            print("BRANCH: ", leaf_node.branch)
 
             leaf_node.parameters = leaf_node.determine_params(self.tree, self.sample)
-            print(f"Registering node {leaf_node.node_index}...")
-            print(leaf_node.parameters)
-            print(leaf_node.branch)
             self.register_node(leaf_node)
-            print(f"Update registered databases for node {leaf_node.node_index}...")
-            print(leaf_node.parameters)
             leaf_node.run_manager.configure_constants()
             leaf_node.run_manager.import_params(leaf_node.parameters)
             leaf_node.run_manager.run_main_prep_check_first()
-            print(leaf_node.run_manager.run_engine)
             _update_success = self.update_node_dbs(leaf_node)
 
 
     def update_node_leaves_dbs(self, node: Tree_Node):
-        print(f"Updating databases for leaves {node.leaves} of node {node.node_index}...")
         for leaf in node.leaves:
             leaf_node = self.spawn_node_child_prepped(node, leaf)
             self.register_node(leaf_node)
-            print(f"Updating databases for node {leaf_node.node_index}...")
             update_success = self.update_node_dbs(leaf_node)
 
             if not update_success:

@@ -411,7 +411,7 @@ class DefaultProjectSoftware(object):
                     self.default_parameters.persist_parameters_create(vect_parameters)
                 else:
                     self.default_parameters.persist_parameters(
-                        vect_parameters, type_of_use
+                        vect_parameters
                     )
 
     def _get_default_parameters(

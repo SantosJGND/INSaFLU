@@ -27,7 +27,8 @@ from pathogen_identification.utilities.utilities_general import \
 from pathogen_identification.utilities.utilities_pipeline import (
     Parameter_DB_Utility, SoftwareTreeUtils, Utils_Manager)
 from pathogen_identification.utilities.utilities_views import (
-    ReportSorter, final_report_best_cov_by_accid)
+    ReportSorter, final_report_best_cov_by_accid,
+    run_reference_overlap_analysis)
 from settings.constants_settings import ConstantsSettings as SettingsConstants
 from utils.process_SGE import ProcessSched
 
@@ -525,45 +526,6 @@ class Run_Main_from_Leaf:
 
         return True
 
-    def set_run_process_running(self):
-        process_controler = ProcessControler()
-        process_SGE = ProcessSched()
-        process_SGE.set_process_controler(
-            self.user,
-            process_controler.get_name_televir_run(
-                self.project.pk,
-                self.sample.pk,
-                self.pipeline_leaf.pk,
-            ),
-            ProcessControler.FLAG_RUNNING,
-        )
-
-    def set_run_process_error(self):
-        process_controler = ProcessControler()
-        process_SGE = ProcessSched()
-        process_SGE.set_process_controler(
-            self.user,
-            process_controler.get_name_televir_run(
-                self.project.pk,
-                self.sample.pk,
-                self.pipeline_leaf.pk,
-            ),
-            ProcessControler.FLAG_ERROR,
-        )
-
-    def set_run_process_finished(self):
-        process_controler = ProcessControler()
-        process_SGE = ProcessSched()
-        process_SGE.set_process_controler(
-            self.user,
-            process_controler.get_name_televir_run(
-                self.project.pk,
-                self.sample.pk,
-                self.pipeline_leaf.pk,
-            ),
-            ProcessControler.FLAG_FINISHED,
-        )
-
     def Deploy_Parts(self):
         try:
 
@@ -667,11 +629,7 @@ class Run_Main_from_Leaf:
         return True
 
     def register_submission(self):
-        self.set_run_process_running()
         self.parameter_set.register_subprocess()
-        new_run = ParameterSet.objects.get(pk=self.pk)
-        new_run.register_subprocess()
-        print("registered_submission")
 
         if self.run_pk:
             run = RunMain.objects.get(pk=self.run_pk)
@@ -685,7 +643,6 @@ class Run_Main_from_Leaf:
             run.save()
 
     def register_error(self):
-        self.set_run_process_error()
 
         new_run = ParameterSet.objects.get(pk=self.pk)
         new_run.register_error()
@@ -704,45 +661,13 @@ class Run_Main_from_Leaf:
         self.container.delete_run()
 
     def run_reference_overlap_analysis(self):
-        final_reports = FinalReport.objects.filter(sample=self.sample).order_by(
-            "-coverage"
+
+        return run_reference_overlap_analysis(
+            self.sample, self.parameter_set
         )
-        #
-        report_layout_params = TelevirParameters.get_report_layout_params(
-            project_pk=self.parameter_set.project.pk
-        )
-
-        if final_reports.exists() is False:
-            return
-
-
-        runs = RunMain.objects.filter(parameter_set=self.parameter_set).exclude(run_type=RunMain.RUN_TYPE_STORAGE)
-        
-        for run in runs:
-
-            final_report = FinalReport.objects.filter(
-                sample=self.parameter_set.sample, run=run
-            ).order_by("-coverage")
-            #
-            report_sorter = ReportSorter(
-                self.parameter_set.sample, final_report, report_layout_params
-            )
-            report_sorter.sort_reports_save()
-            report_sorter.reports_aggregate_register(report_layout_params, run)
-
-        final_reports = FinalReport.objects.filter(
-            sample=self.parameter_set.sample,
-        ).order_by("-coverage")
-
-        final_reports = final_report_best_cov_by_accid(final_reports)
-        report_sorter = ReportSorter(
-            self.parameter_set.sample, final_reports, report_layout_params
-        )
-        report_sorter.sort_reports_save()
-        report_sorter.reports_aggregate_register(report_layout_params)
 
     def register_completion(self):
-        self.set_run_process_finished()
+
         self.run_reference_overlap_analysis()
         new_run = ParameterSet.objects.get(pk=self.pk)
         new_run.register_finished()
@@ -757,7 +682,7 @@ class Run_Main_from_Leaf:
         self.project.save()
 
     def Submit(self):
-        if not self.check_submission() and not self.check_processed():
+        if not self.check_processed():
             self.register_submission()
 
             try:

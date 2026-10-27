@@ -39,7 +39,7 @@ urlpatterns = [
         name="teleflu_workflow_igv",
     ),
     path(
-        "teleflu_mapping_files/<int:pk>",
+        "teleflu_project/teleflu_mapping_files/<int:pk>",
         PIviews.get_mapping_bams_zip,
         name="teleflu_mapping_files",
     ),
@@ -395,7 +395,7 @@ urlpatterns = [
     ),
     path(
         "ajax/submit_sample_metagenomics_televir",
-        PIajax_views.submit_sample_metagenomics_televir,
+        PIajax_views.submit_sample_televir_combined_mapping,
         name="deploy_metagenomics_televir_project_sample",
     ),
     path(

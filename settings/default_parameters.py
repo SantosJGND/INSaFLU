@@ -14,14 +14,13 @@ from django.db import DatabaseError, transaction
 from constants.meta_key_and_values import MetaKeyAndValue
 from constants.software_names import SoftwareNames
 from managing_files.models import Project, ProjectSample
-from pathogen_identification.constants_settings import (
-    ConstantsSettings as PI_ConstantsSettings,
-)
-from pathogen_identification.utilities.utilities_pipeline import (
-    Utility_Pipeline_Manager,
-)
+from pathogen_identification.constants_settings import \
+    ConstantsSettings as PI_ConstantsSettings
+from pathogen_identification.utilities.utilities_pipeline import \
+    Utility_Pipeline_Manager
 from settings.constants_settings import ConstantsSettings
-from settings.models import Parameter, PipelineStep, Project, Software, Technology
+from settings.models import (Parameter, PipelineStep, Project, Software,
+                             Technology)
 from utils.lock_atomic_transaction import LockedAtomicTransaction
 
 
@@ -146,12 +145,11 @@ class DefaultParameters(object):
                 continue
 
     @transaction.atomic
-    def persist_parameters(self, vect_parameters: List[Parameter], type_of_use: int):
+    def persist_parameters(self, vect_parameters: List[Parameter], software: Optional[Software] = None):
         """
         persist a specific software by default
         param: type_of_use Can by Software.TYPE_OF_USE_project; Software.TYPE_OF_USE_project_sample
         """
-        software = None
         dt_out_sequential = {}
 
         for parameter in vect_parameters:
@@ -2933,11 +2931,9 @@ class DefaultParameters(object):
         parameter.is_to_run = True
         parameter.sequence_out = 1
         parameter.description = "flag calculations to use for mapping. defaults for viruses, bacteria, probes."
-
         vect_parameters.append(parameter)
 
         parameter = Parameter()
-
         parameter.name = SoftwareNames.SOFTWARE_televir_report_layout_threshold_name
         parameter.parameter = "0.5"
         parameter.type_data = Parameter.PARAMETER_float
@@ -2954,6 +2950,23 @@ class DefaultParameters(object):
             "read sharing threshold used to group references into groups"
         )
         vect_parameters.append(parameter)
+
+        parameter = Parameter()
+        parameter.name = SoftwareNames.SOFTWARE_televir_report_description_filters
+        parameter.parameter = SoftwareNames.SOFTWARE_televir_report_description_filters_default
+        parameter.type_data = Parameter.PARAMETER_multiple_choice
+        parameter.software = software
+        parameter.sample = sample
+        parameter.union_char = " "
+        parameter.can_change = True
+        parameter.is_to_run = True
+        parameter.sequence_out = 3
+        parameter.description = (
+            "Explicit description filters to use for mapping. defaults for viruses, bacteria, probes."
+        )
+        vect_parameters.append(parameter)
+        
+
 
         return vect_parameters
 

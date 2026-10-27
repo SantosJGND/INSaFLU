@@ -669,6 +669,8 @@ class SoftwareNames(object):
     SOFTWARE_televir_report_layout_default = ""
     SOFTWARE_televir_report_layout_version = "1.0.0"
     SOFTWARE_televir_report_layout_flag_name = "--flag-type"
+    SOFTWARE_televir_report_description_filters = "--filters"
+    SOFTWARE_televir_report_description_filters_default= "phage;plasmid;vector;synthetic;recombinant;chimeric"
     SOFTWARE_televir_report_layout_threshold_name = "--r-overlap"
     SOFTWARE_REMAP_PARAMS_min_quality = "--qualityThreshold"  # "--min-quality"
     SOFTWARE_REMAP_PARAMS_max_mismatch = "--mismatchThreshold"  # "--max-mismatch"
