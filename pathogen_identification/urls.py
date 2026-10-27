@@ -444,6 +444,11 @@ urlpatterns = [
         name="kill_all_televir_project_sample",
     ),  ## remove a televir project
     path(
+        "ajax/kill_teleflu_workflow",
+        PIajax_views.kill_televir_project_focus,
+        name="kill_teleflu_workflow",
+    ),  ## remove a televir project
+    path(
         "ajax/deploy_televir_map",
         PIajax_views.deploy_televir_map,
         name="deploy_televir_map",

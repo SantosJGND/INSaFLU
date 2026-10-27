@@ -149,7 +149,7 @@
             </div>
             <!-- Modal body -->
             <div class="modal-body mx-auto mw-100">
-                <div id="id-modal-map-workflow-sample" remove-single-value-url="{% url 'remove_consensus_in_dataset' %}">
+                <div id="id-modal-map-workflow-sample">
                     <label id="id-label-map-workflow" class="col-form-label">Folder Name</label>
                 </div>
             </div>
@@ -157,7 +157,7 @@
             <div class="modal-footer" id="id-modal-footer-remove">
                 <button id="id-cancel-button" type="button" class="btn btn-secondary" data-dismiss="modal"
                     aria-hidden="true">Cancel</button>
-                <button id="id-map-button" type="button" class="btn btn-primary" data-dismiss="modal" utl="{% url 'map_workflow_to_samples' %}"
+                <button id="id-map-button" type="button" class="btn btn-primary" data-dismiss="modal" mapping-url="{% url 'map_workflow_to_samples' %}"
                     aria-hidden="true">Map</button>
             </div>
         </div>
@@ -190,6 +190,31 @@
 </div>
 
 
+<!-- the kill teleflu mapping modal -->
+<div class="modal fade" id="id_kill_teleflu_modal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <!-- Modal Header -->
+            <div class="modal-header alert alert-warning">
+                <h4 class="modal-title-submit">Kill Workflow</h4>
+            </div>
+            <!-- Modal body -->
+            <div class="modal-body mx-auto mw-100">
+                <div id="id-modal-map-workflow-sample">
+                    <label id="id-label-map-workflow" class="col-form-label">Are you sure you want to kill this workflow?</label>
+                </div>
+            </div>
+            <!-- Modal footer -->
+            <div class="modal-footer" id="id-modal-footer-remove">
+                <button id="id-cancel-button" type="button" class="btn btn-secondary" data-dismiss="modal"
+                    aria-hidden="true">Cancel</button>
+                <button id="id-kill-button" type="button" class="btn btn-danger" data-dismiss="modal" kill-teleflu-url="{% url 'kill_teleflu_workflow' %}" csrf-token="{{ csrf_token }}"
+                    aria-hidden="true">Kill</button>
+            </div>
+        </div>
+    </div>
+
+
 
 {% endblock content %}
 
@@ -202,11 +227,47 @@
 <script> 
 
     $(document).ready(function() {
-
         load_teleflu_workflows();
         buttons_background();
 
     });
+
+    $(document).on('click', '.killWorkflowButton', function() {
+        var workflowId = $(this).attr('workflow-id');
+        $('#id_kill_teleflu_modal').data('workflow-id', workflowId).modal('show');
+        $('#id-label-map-workflow').text('Are you sure you want to kill workflow ' + workflowId + '?');
+    });
+
+    $(document).on('click', '#id-kill-button', function() {
+        var workflowId = $('#id_kill_teleflu_modal').data('workflow-id');
+        killWorkflow(workflowId);
+    });
+
+    function killWorkflow(workflowId) {
+        var url = $('#id-kill-button').attr('kill-teleflu-url');
+        var csrfToken = $('#id-kill-button').attr('csrf-token');
+
+        $.ajax({
+            url: url,
+            type: "POST",
+            data: {
+                'teleflu_mapping_id': workflowId,
+                'csrfmiddlewaretoken': csrfToken
+            },
+            success: function(response) {
+                if (response["is_ok"] === true) {
+                    alert("Workflow killed successfully.");
+                    clearWorkflowList(); // Clear the workflow list before reloading
+                    load_teleflu_workflows(); // Refresh the workflow list
+                } else {
+                    alert("Failed to kill the workflow.");
+                }
+            },
+            error: function(xhr, status, error) {
+                alert("An error occurred while trying to kill the workflow.");
+            }
+        });
+    }
 
 </script>
 

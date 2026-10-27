@@ -1208,7 +1208,6 @@ def kill_televir_project_tree_sample(request):
 
         sample_id = int(request.POST["sample_id"])
         sample = PIProject_Sample.objects.get(id=int(sample_id))
-        project = Projects.objects.get(id=int(sample.project.pk))
 
         runs_params = ParameterSet.objects.filter(
             sample=sample,
@@ -1229,7 +1228,8 @@ def kill_televir_project_tree_sample(request):
                 single_run_param.save()
 
                 runs = RunMain.objects.filter(
-                    sample=sample, leaf=single_run_param.leaf
+                    sample=sample, parameter_set=single_run_param,
+                    status__in=[RunMain.STATUS_RUNNING, RunMain.STATUS_QUEUED]
                 )
                 for run in runs:
                     run.status = RunMain.STATUS_KILLED
@@ -1259,8 +1259,48 @@ def kill_televir_project_tree_sample(request):
             data["is_deployed"] = True
 
         data["is_ok"] = True
-        print(data)
         return JsonResponse(data)
+
+
+@login_required
+@require_POST
+def kill_televir_project_focus(request):
+    data = {"is_ok": False, "is_deployed": False}
+    if request.headers.get("x-requested-with") == "XMLHttpRequest":
+
+        process_SGE = ProcessSched()
+        user = request.user
+        from pathogen_identification.models import TelefluMapping
+        teleflu_mapping_id = int(request.POST["teleflu_mapping_id"])
+        teleflu_mapping = TelefluMapping.objects.get(id=int(teleflu_mapping_id))
+        samples = TeleFluSample.objects.filter(teleflu_project=teleflu_mapping.teleflu_project)
+
+        for sample in samples:
+            project_sample = sample.televir_sample
+            runs = RunMain.objects.filter(
+                sample=project_sample, parameter_set__leaf = teleflu_mapping.leaf,
+                status__in=[RunMain.STATUS_RUNNING, RunMain.STATUS_QUEUED, RunMain.STATUS_PREP]
+            )
+            for run in runs:
+
+                
+                try:
+                    process_SGE.kill_televir_process_controler_samples(
+                        user.pk, project_sample.pk, teleflu_mapping.leaf.pk
+                    )
+                    run.status = RunMain.STATUS_KILLED
+                    run.save()
+                except ProcessControler.DoesNotExist as e:
+                    print(e)
+                    print("ProcessControler.DoesNotExist")
+                    import traceback
+                    traceback.print_exc()
+                    pass
+                    
+            data["is_ok"] = True
+
+    return JsonResponse(data)
+
 
 
 @login_required
@@ -1269,9 +1309,8 @@ def kill_televir_project_all_sample(request):
     """
     kill all processes a sample, set queued to false
     """
-
+    data = {"is_ok": False, "is_deployed": False, "is_empty": True}
     if request.headers.get("x-requested-with") == "XMLHttpRequest":
-        data = {"is_ok": False, "is_deployed": False, "is_empty": True}
 
         process_SGE = ProcessSched()
         user = request.user
@@ -1309,7 +1348,8 @@ def kill_televir_project_all_sample(request):
                     single_run_param.save()
 
                     runs = RunMain.objects.filter(
-                        sample=sample, leaf=single_run_param.leaf
+                        sample=sample, parameter_set=single_run_param,
+                        status__in=[RunMain.STATUS_RUNNING, RunMain.STATUS_QUEUED]
                     )
                     for run in runs:
                         run.status = RunMain.STATUS_KILLED
@@ -1331,8 +1371,8 @@ def kill_televir_project_all_sample(request):
         if killed > 0:
             data["is_empty"] = False
 
-        data["is_ok"] = True
-        return JsonResponse(data)
+    data["is_ok"] = True
+    return JsonResponse(data)
 
 
 @login_required

@@ -1578,12 +1578,10 @@ class TeleFluProject(models.Model):
 
     @property
     def nsamples(self):
-
         return TeleFluSample.objects.filter(teleflu_project=self).count()
 
     @property
     def nworkflows(self):
-
         return TelefluMapping.objects.filter(teleflu_project=self).count()
 
     @property
