@@ -478,7 +478,7 @@ class SampleTableOne(tables.Table):
 
         return mark_safe(
                     f"""
-            {deployment_management} |  {processes}
+            {deployment_management} | <p style="display:inline;" title='Running / Queued / Finished'> {processes} </p>
         """
         )
     def render_deploy(self, record: PIProject_Sample):
@@ -724,6 +724,7 @@ class SampleTableOne(tables.Table):
                 RunMain.RUN_TYPE_COMBINED_MAPPING,
                 RunMain.RUN_TYPE_MAP_REQUEST,
                 RunMain.RUN_TYPE_PANEL_MAPPING,
+                RunMain.RUN_TYPE_CONTROL_MAPPING,
             ],
             status__in=[
                 RunMain.STATUS_DEFAULT,
