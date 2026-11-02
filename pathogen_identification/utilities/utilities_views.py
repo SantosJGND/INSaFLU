@@ -576,8 +576,31 @@ class SampleReferenceManager:
 
         return report_taxa
     
+    def report_taxa_to_table(self, report_taxa: list) -> list:
+        table_data = []
+        for taxon_report in report_taxa:
+            species = taxon_report["species"]
+            report_groups = taxon_report["report_groups"]
+            total_private_counts = taxon_report["total_private_counts"]
+            any_in_control = taxon_report["any_in_control"]
 
-
+            for report_group, report_list in report_groups.items():
+                for report in report_list.reports:
+                    table_data.append({
+                        "sample": self.sample.name,
+                        "species": species.name if species else "Unassigned",
+                        "report_group": report_group.name,
+                        "total_counts": report_group.total_counts,
+                        "private_counts": report_group.private_counts,
+                        "description": report.description,
+                        "accid": report.accid,
+                        "taxid": report.taxid,
+                    })
+        
+        table_data = sorted(table_data, key=lambda x: (x["species"] if x["species"] else "Unassigned", x["report_group"], x["private_counts"]), reverse=True)
+        
+        return table_data
+    
     def add_reference(self, reference: ReferenceSourceFileMap):
         ref_description = reference.description
 
