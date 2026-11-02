@@ -585,17 +585,17 @@ class SampleReferenceManager:
             any_in_control = taxon_report["any_in_control"]
 
             for report_group, report_list in report_groups.items():
-                for report in report_list.reports:
-                    table_data.append({
-                        "sample": self.sample.name,
-                        "species": species.name if species else "Unassigned",
-                        "report_group": report_group.name,
-                        "total_counts": report_group.total_counts,
-                        "private_counts": report_group.private_counts,
-                        "description": report.description,
-                        "accid": report.accid,
-                        "taxid": report.taxid,
-                    })
+                report = report_list[0]  # Assuming you want to take the first report in the list
+                table_data.append({
+                    "sample": self.sample.name,
+                    "species": species.name if species else "Unassigned",
+                    "report_group": report_group.name,
+                    "total_counts": report_group.total_counts,
+                    "private_counts": report_group.private_counts,
+                    "description": report.description,
+                    "accid": report.accid,
+                    "taxid": report.taxid,
+                })
         
         table_data = sorted(table_data, key=lambda x: (x["species"] if x["species"] else "Unassigned", x["report_group"], x["private_counts"]), reverse=True)
         
