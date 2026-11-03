@@ -2471,22 +2471,59 @@ def deploy_televir_map(request):
     """
     prepare data for deployment of pathogen identification.
     """
-
+    data = {"is_ok": False, "is_deployed": False}
     if request.headers.get("x-requested-with") == "XMLHttpRequest":
-        data = {"is_ok": False, "is_deployed": False}
 
         process_SGE = ProcessSched()
         user = request.user
 
         reference_id = int(request.POST["reference_id"])
         project_id = int(request.POST["project_id"])
-        taskID = process_SGE.set_submit_televir_map(
-            user, reference_pk=reference_id, project_pk=project_id
+
+        reference = RawReference.objects.get(pk=reference_id)
+        project = Projects.objects.get(pk=project_id)
+
+        if reference.run is None:
+            data["is_error"] = True
+            data["message"] = "Reference has no associated run."
+            return JsonResponse(data)
+        
+        sample = reference.run.sample
+
+        if sample is None:
+            data["is_error"] = True
+            data["message"] = "Reference has no associated sample."
+            return JsonResponse(data) 
+        
+        software_utils = SoftwareTreeUtils(user, project, sample)
+        reference_manager = SampleReferenceManager(sample)
+        runs_to_deploy, _ = (
+            software_utils.check_runs_to_submit_mapping_only(sample)
         )
+
+        for leaf in runs_to_deploy[sample]:
+            run = reference_manager.mapping_request_run_from_leaf(leaf)
+            if run is None:
+                continue
+            
+            taskID = process_SGE.set_submit_televir_sample_metagenomics(
+                user=user,
+                sample_pk=sample.pk,
+                leaf_pk=leaf.pk,
+                mapping_request=True,
+                map_run_pk=run.pk,
+            )
+
+            data["is_deployed"] = True
+    
+
+        #taskID = process_SGE.set_submit_televir_map(
+        #    user, reference_pk=reference_id, project_pk=project_id
+        #)
 
         data["is_ok"] = True
 
-        return JsonResponse(data)
+    return JsonResponse(data)
 
 
 #######################################################################

@@ -1437,8 +1437,9 @@ class DefaultParameters(object):
                 software.owner,
                 Software.TYPE_OF_USE_televir_global,
                 ConstantsSettings.TECHNOLOGY_illumina,
-                pipeline_step=ConstantsSettings.PIPELINE_NAME_metagenomics_screening,
+                pipeline_step=ConstantsSettings.PIPELINE_NAME_remapping,
             )
+        
         elif software.name == SoftwareNames.SOFTWARE_MINIMAP2_MAP_ASSEMBLY_name:
             return self.get_minimap2_map_assembly_default(
                 software.owner,

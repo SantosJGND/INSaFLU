@@ -1579,6 +1579,7 @@ class ReportSorter:
         self.level = level
 
         self.clustering_model_type = TelevirParameters.get_clustering_model(self.sample.project.pk) 
+        self.metadata_df = self.prep_metadata_df()
 
         self.overlap_manager = ReadOverlapManager(
             self.metadata_df,
@@ -1590,9 +1591,7 @@ class ReportSorter:
             clustering_model_type=self.clustering_model_type,
         )
 
-        self.metadata_df = self.prep_metadata_df()
         self.fasta_files = self.metadata_df.file.tolist()
-
         self.reports_available = len(self.report_dict) > 0 or len(self.excluded_dict) > 0
         self.fasta_files = self.metadata_df.file.tolist()
 
