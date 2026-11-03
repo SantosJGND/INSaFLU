@@ -1373,6 +1373,10 @@ class RawReferenceTable_Basic(tables.Table):
             )
             return mark_safe("Unmapped" + button)
 
+        elif record.status == RawReference.STATUS_MAPPING_REQUESTED:
+            button = "Redeployed"
+            return button
+
 
 class RawReferenceTable(RawReferenceTable_Basic):
     classification_source = tables.Column(

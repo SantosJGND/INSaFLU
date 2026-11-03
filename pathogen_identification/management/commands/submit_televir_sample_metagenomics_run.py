@@ -188,7 +188,10 @@ class Command(BaseCommand):
 
         except Exception as e:
             print(e)
-            # graph_progress.generate_graph()
+            from pathogen_identification.models import RawReference
+            references = RawReference.objects.filter(run = mapping_run)
+            for reference in references:
+                reference.update_raw_reference_status_fail()
 
             process_SGE.set_process_controler(
                 user,

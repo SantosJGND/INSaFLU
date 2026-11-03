@@ -2505,6 +2505,11 @@ def deploy_televir_map(request):
             run = reference_manager.mapping_request_run_from_leaf(leaf)
             if run is None:
                 continue
+            reference.status = RawReference.STATUS_MAPPING_REQUESTED
+            reference.save()
+            reference.pk = None
+            reference.run = run
+            reference.save()
             
             taskID = process_SGE.set_submit_televir_sample_metagenomics(
                 user=user,

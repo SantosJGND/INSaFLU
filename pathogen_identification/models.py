@@ -1325,6 +1325,7 @@ class RawReference(models.Model):
     STATUS_MAPPING = 2
     STATUS_FAIL = 3
     STATUS_MISSING = 4
+    STATUS_MAPPING_REQUESTED = 5
 
     STATUS_CHOICES = (
         (STATUS_MAPPED, "Mapped"),
