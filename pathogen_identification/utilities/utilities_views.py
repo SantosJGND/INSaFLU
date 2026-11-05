@@ -1549,7 +1549,12 @@ class ReportSorter:
         report_layout_params: LayoutParams,
         force=False,
         level=0,
+        filter = True
     ):
+
+        if filter:
+            reports = self.filter_reports(reports)
+          
         self.reports: List[FinalReport] = reports
         self.sample = sample
         self.analysis_empty = False
@@ -1684,9 +1689,6 @@ class ReportSorter:
         
         
         return reports
-
-    
-        
 
     def build_tree(self):
         if self.reports_available:
@@ -2503,7 +2505,7 @@ def run_reference_overlap_analysis(sample: PIProject_Sample, parameter_set: Para
         ).order_by("-coverage")
         #
         report_sorter = ReportSorter(
-            parameter_set.sample, final_reports_run, report_layout_params
+            parameter_set.sample, final_reports_run, report_layout_params, filter=True
         )
         report_sorter.sort_reports_save()
         report_sorter.reports_aggregate_register(report_layout_params, run)
@@ -2511,7 +2513,7 @@ def run_reference_overlap_analysis(sample: PIProject_Sample, parameter_set: Para
 
     final_reports = final_report_best_cov_by_accid(final_reports)
     report_sorter = ReportSorter(
-        parameter_set.sample, final_reports, report_layout_params
+        parameter_set.sample, final_reports, report_layout_params, filter=True
     )
     report_sorter.build_tree()
     report_sorter.sort_reports_save()
@@ -2530,7 +2532,7 @@ def calculate_reports_overlaps(sample: PIProject_Sample, force=False):
     final_reports = final_report_best_cov_by_accid(final_reports)
 
     report_sorter = ReportSorter(
-        sample, final_reports, report_layout_params, force=force
+        sample, final_reports, report_layout_params, force=force, filter=True
     )
 
     report_sorter.reports_aggregate_register(report_layout_params)

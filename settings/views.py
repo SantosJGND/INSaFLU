@@ -5,6 +5,7 @@ from django.urls import reverse, reverse_lazy
 from django.utils.functional import cached_property
 from django.views.generic import ListView, TemplateView, UpdateView
 from view_breadcrumbs import BaseBreadcrumbMixin
+
 from constants.constants import Constants
 from constants.meta_key_and_values import MetaKeyAndValue
 from constants.software_names import SoftwareNames
@@ -998,6 +999,7 @@ class UpdateParametersView(BaseBreadcrumbMixin, LoginRequiredMixin, UpdateView):
                             parameter.parameter = "None"
                         else:
                             parameter.parameter = value_from_form
+                        print("value_from_form", value_from_form)
                         parameter.save()
 
             if b_change:

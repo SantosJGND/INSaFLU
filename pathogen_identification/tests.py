@@ -30,6 +30,7 @@ from pathogen_identification.models import (FinalReport, ParameterSet,
 from pathogen_identification.modules.metadata_handler import RunMetadataHandler
 from pathogen_identification.modules.object_classes import (
     Operation_Temp_Files, Read_class, RunCMD, Temp_File)
+from pathogen_identification.televir_pipeline_makeup import Pipeline_Makeup
 from pathogen_identification.utilities.overlap_manager import (
     MappingResultsParser, ReadOverlapManager, clade_private_proportions,
     pairwise_shared_count, pairwise_shared_reads,
@@ -50,7 +51,6 @@ from settings.default_software import DefaultSoftware
 from settings.models import Parameter, Sample, Software
 from utils.software import Software as SoftwareUtils
 from utils.utils import Utils
-from pathogen_identification.televir_pipeline_makeup import Pipeline_Makeup
 
 
 class AttrDict(dict):
@@ -1164,7 +1164,7 @@ class MetadataManagementTests(TestCase):
         reference_utils = RawReferenceUtils(project=self.project_illu)
 
         report_sorter = ReportSorter(
-            self.project_sample_illu, final_report, report_layout_params
+            self.project_sample_illu, final_report, report_layout_params, filter=True
         )
 
         sorted_reports = report_sorter.get_reports()

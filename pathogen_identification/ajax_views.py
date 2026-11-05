@@ -1398,7 +1398,7 @@ def sort_report_projects(request):
                 final_reports = FinalReport.objects.filter(sample=sample)
 
                 report_sorter = ReportSorter(
-                    sample, final_reports, report_layout_params
+                    sample, final_reports, report_layout_params, filter=True
                 )
 
                 if report_sorter.reports_available is False:

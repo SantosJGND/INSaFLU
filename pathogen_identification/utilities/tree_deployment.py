@@ -23,16 +23,13 @@ from pathogen_identification.modules.object_classes import Remap_Target
 from pathogen_identification.modules.remap_class import Mapping_Instance
 from pathogen_identification.modules.run_main import RunMainTree_class
 from pathogen_identification.televir_pipeline_makeup import Pipeline_Makeup
-from pathogen_identification.utilities.televir_parameters import \
-    TelevirParameters
 from pathogen_identification.utilities.update_DBs_tree import (
     Update_Assembly, Update_Classification, Update_Remap,
     Update_RunMain_Initial, Update_RunMain_Secondary)
 from pathogen_identification.utilities.utilities_pipeline import (
     PipelineTree, Utils_Manager)
-from pathogen_identification.utilities.utilities_views import (
-    ReportSorter, final_report_best_cov_by_accid,
-    run_reference_overlap_analysis)
+from pathogen_identification.utilities.utilities_views import \
+    run_reference_overlap_analysis
 from settings.constants_settings import ConstantsSettings
 from utils.utils import Utils
 

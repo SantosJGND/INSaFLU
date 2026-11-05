@@ -26,9 +26,8 @@ from pathogen_identification.utilities.utilities_general import \
     simplify_name_lower
 from pathogen_identification.utilities.utilities_pipeline import (
     Parameter_DB_Utility, SoftwareTreeUtils, Utils_Manager)
-from pathogen_identification.utilities.utilities_views import (
-    ReportSorter, final_report_best_cov_by_accid,
-    run_reference_overlap_analysis)
+from pathogen_identification.utilities.utilities_views import \
+    run_reference_overlap_analysis
 from settings.constants_settings import ConstantsSettings as SettingsConstants
 from utils.process_SGE import ProcessSched
 
