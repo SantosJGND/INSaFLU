@@ -1541,8 +1541,10 @@ class ReadOverlapManager(MappingResultsParser):
         print(f"Predicted stop traversal: {stop} with probability {prob}")
 
         if stop is None:
-            raise RuntimeError("ML API unavailable and no fallback model provided.")
-
+            self.logger.error(f"ML API unavailable, falling back to fixed traversal for clade {clade.name}")
+            self._traverse_with_fixed(clade, accid_df, results)
+            return results
+            
         best_taxid = self._best_taxid_for_leaves(leaves)
 
         if stop or clade.is_terminal():
