@@ -1152,14 +1152,14 @@ class MetadataManagementTests(TestCase):
 
         reset_project_makeup(self.project_illu)
 
-        mapping_run = RunMain.objects.get(pk=run_engine.run_pk)
+        mapping_run = RunMain.objects.get(pk=run_engine._run_pk)
 
         final_report = FinalReport.objects.filter(
             sample=self.project_sample_illu, run=mapping_run
         ).order_by("-coverage")
 
         report_layout_params = TelevirParameters.get_report_layout_params(
-            run_pk=run_engine.run_pk
+            run_pk=run_engine._run_pk
         )
         reference_utils = RawReferenceUtils(project=self.project_illu)
 

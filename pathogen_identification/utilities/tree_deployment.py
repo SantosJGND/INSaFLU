@@ -78,6 +78,12 @@ class PathogenIdentification_TreeDeployment(PathogenIdentificationDeploymentCore
         self.sent = False
         self.assembly_udated = False
         self.classification_updated = False
+    
+    @property
+    def run_pk(self):
+        if self.run_engine is not None:
+            return self.run_engine.run_pk
+        return None
 
 
 class Tree_Node:
@@ -205,7 +211,12 @@ class Tree_Node:
         self.parameter_set.status = ParameterSet.STATUS_ERROR
         self.parameter_set.save()
 
-        # self.run_manager.delete_run()
+        if self.run_manager.run_pk == None:
+            return True
+
+        run = RunMain.objects.get(pk=self.run_manager.run_pk)
+        run.status = RunMain.STATUS_ERROR
+        run.save()
 
         return True
 
@@ -535,6 +546,18 @@ class Tree_Progress:
             registration_success = leaf_node.register_failed(
                 self.project, self.sample, self.tree
             )
+
+    def register_failed_leaves(self):
+        for node in self.current_nodes:
+            if node.node_index in node.leaves:
+                registration_success = node.register_failed(
+                    self.project, self.sample, self.tree
+                )
+            for leaf in node.leaves:
+                leaf_node = self.spawn_node_child(node, leaf)
+                registration_success = leaf_node.register_failed(
+                    self.project, self.sample, self.tree
+                )
 
     def initialize_nodes(self):
         origin_node = Tree_Node(
@@ -1010,9 +1033,13 @@ class Tree_Progress:
         for node in self.current_nodes:
             for leaf in node.leaves:
                 leaf_node = self.spawn_node_child(node, leaf)
-                _ = leaf_node.register_running(self.project, self.sample, self.tree)
-                leaf_node.run_reference_overlap_analysis()
-                _ = self.register_finished(leaf_node)
+                try:
+                    _ = leaf_node.register_running(self.project, self.sample, self.tree)
+                    leaf_node.run_reference_overlap_analysis()
+                    _ = self.register_finished(leaf_node)
+                except Exception as e:
+                    leaf_node.register_failed(self.project, self.sample, self.tree)
+
 
     def calculate_report_overlaps_runs(self):
         for node in self.current_nodes:

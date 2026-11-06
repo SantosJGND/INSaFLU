@@ -378,7 +378,7 @@ class Run_Main_from_Leaf:
         self.project = project
         self.combined_analysis = combined_analysis
         self.mapping_request = mapping_request
-        self.run_pk = run_pk
+        self._run_pk = run_pk
         self.pipeline_leaf = pipeline_leaf
         self.pipeline_tree = pipeline_tree
         ########################################
@@ -418,6 +418,14 @@ class Run_Main_from_Leaf:
         )
 
         self.is_available = self.check_availability()
+
+    @property
+    def run_pk(self):
+        if self._run_pk is not None:
+            return self._run_pk
+        if self.container.run_engine.run_pk is not None:
+            return self.container.run_engine.run_pk
+        return None
 
     def get_status(self):
         return self.parameter_set.status
@@ -480,8 +488,8 @@ class Run_Main_from_Leaf:
             return False
 
         self.container.run_main_prep_dump_tables()
-        if self.run_pk is not None:
-            self.container.run_engine.run_pk = self.run_pk
+        if self._run_pk is not None:
+            self.container.run_engine.run_pk = self._run_pk
 
         if (
             self.container.run_engine.run_type
@@ -500,12 +508,12 @@ class Run_Main_from_Leaf:
                     == RunMainTree_class.RUN_TYPE_COMBINED_MAPPING
                 ):
                     self.container.run_engine.metadata_tool.get_mapping_references(
-                        self.run_pk,
+                        self._run_pk,
                         max_accids=self.container.run_engine.remap_params.max_accids,
                     )
                 else:
                     self.container.run_engine.metadata_tool.get_mapping_references(
-                        self.run_pk)
+                        self._run_pk)
 
             if self.combined_analysis:
                 self.container.run_engine.run_type = (
@@ -630,14 +638,14 @@ class Run_Main_from_Leaf:
     def register_submission(self):
         self.parameter_set.register_subprocess()
 
-        if self.run_pk:
-            run = RunMain.objects.get(pk=self.run_pk)
+        if self._run_pk:
+            run = RunMain.objects.get(pk=self._run_pk)
             run.status = RunMain.STATUS_PREP
             run.save()
 
     def register_running(self):
-        if self.run_pk:
-            run = RunMain.objects.get(pk=self.run_pk)
+        if self._run_pk:
+            run = RunMain.objects.get(pk=self._run_pk)
             run.status = RunMain.STATUS_RUNNING
             run.save()
 
@@ -647,8 +655,8 @@ class Run_Main_from_Leaf:
         new_run.register_error()
 
         try:
-            if self.run_pk:
-                run = RunMain.objects.get(pk=self.run_pk)
+            if self._run_pk:
+                run = RunMain.objects.get(pk=self._run_pk)
                 run.status = RunMain.STATUS_ERROR
                 run.save()
             else:
@@ -671,8 +679,8 @@ class Run_Main_from_Leaf:
         new_run = ParameterSet.objects.get(pk=self.pk)
         new_run.register_finished()
 
-        if self.run_pk:
-            run = RunMain.objects.get(pk=self.run_pk)
+        if self._run_pk:
+            run = RunMain.objects.get(pk=self._run_pk)
             run.status = RunMain.STATUS_FINISHED
             run.save()
 

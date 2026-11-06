@@ -5,7 +5,7 @@ from django.core.management.base import BaseCommand
 
 from managing_files.models import ProcessControler
 from pathogen_identification.models import (PIProject_Sample, Projects,
-                                            SoftwareTree, RunBatch)
+                                            RunBatch, SoftwareTree)
 from pathogen_identification.utilities.tree_deployment import (
     Tree_Progress, TreeProgressGraph)
 from pathogen_identification.utilities.utilities_pipeline import (
@@ -129,20 +129,37 @@ class Command(BaseCommand):
                         deployment_tree = Tree_Progress(
                             module_tree, project_sample, project, output_directory=output_directory
                         )
-                        graph_progress.generate_graph()
 
-                        deployment_tree.cycle_process()
+                        try:
 
-                        graph_progress.generate_graph()
-                        set_control_reports(project.pk)
+                            graph_progress.generate_graph()
 
-                        reference_utils = RawReferenceUtils(project_sample)
-                        _ = reference_utils.create_compound_references()
+                            deployment_tree.cycle_process()
 
-                        _ = process_SGE.set_submit_televir_sort_pisample_reports(
-                            user=user,
-                            pisample_pk=project_sample.pk,
-                        )
+                            graph_progress.generate_graph()
+                            set_control_reports(project.pk)
+
+                            reference_utils = RawReferenceUtils(project_sample)
+                            _ = reference_utils.create_compound_references()
+
+                            _ = process_SGE.set_submit_televir_sort_pisample_reports(
+                                user=user,
+                                pisample_pk=project_sample.pk,
+                            )
+                        except Exception as e:
+                            print(e)
+                            process_SGE.set_process_controler(
+                                user,
+                                process_controler.get_name_televir_project_sample(
+                                    batch_pk=run_batch.pk, sample_pk=project_sample.pk
+                                ),
+                                ProcessControler.FLAG_ERROR,
+                            )
+                            reference_utils = RawReferenceUtils(project_sample)
+                            _ = reference_utils.create_compound_references()
+                            deployment_tree.register_failed_leaves()
+
+                            raise e
 
                         break
 
