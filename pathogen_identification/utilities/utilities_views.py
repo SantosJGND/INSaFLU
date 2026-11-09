@@ -1551,11 +1551,6 @@ class ReportSorter:
         level=0,
         filter = True
     ):
-
-        if filter:
-            reports = self.filter_reports(reports)
-          
-        self.reports: List[FinalReport] = reports
         self.sample = sample
         self.analysis_empty = False
         self.max_error_rate = 0
@@ -1563,12 +1558,18 @@ class ReportSorter:
         self.max_mapped_prop = 0
         self.max_coverage = 0
         self.max_windows_covered = 1
+        self.report_layout_params = report_layout_params
+
+        if filter:
+            reports = self.filter_reports(reports)
+          
+        self.reports: List[FinalReport] = reports
+
         self.error_rate_available = self.assess_error_rate_available()
         self.quality_avg_available = self.assess_quality_avg_available()
         self.assess_max_mapped_prop()
         self.assess_max_coverage()
         self.reference_clade = self.generate_reference_clade(report_layout_params)
-        self.report_layout_params = report_layout_params
 
         self.report_dict = {}
         self.excluded_dict = {}
