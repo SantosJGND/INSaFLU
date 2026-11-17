@@ -97,11 +97,26 @@
                             <th colspan="11">
                                 <form method="get" class="form-inline form-search pull-right">
                                     {% csrf_token %}
-                                    <input id="search_form_id" name="search_references" type="text" class="form-control col-md-8"
-                                        placeholder="Reference Name, Taxid, Accid, Source" {% if search_references %}
-                                        value="{{ search_references }}" {% endif %}>
-                                    <button type="submit" class="btn btn-small btn-dark"><i class="fa fa-search"></i>
-                                        Search</button>
+                                    <div class="form-row align-items-center">
+                                        <div class="col-auto">
+                                            <input id="search_name" name="search_references_name" type="text" class="form-control"
+                                                placeholder="Reference Name" {% if search_references_name %} value="{{ search_references_name }}" {% endif %}>
+                                        </div>
+
+                                        <div class="col-auto">
+                                            <input id="search_accid" name="search_references_accid" type="text" class="form-control"
+                                                placeholder="Reference Accid" {% if search_references_accid %} value="{{ search_references_accid }}" {% endif %}>
+                                        </div>
+
+                                        <div class="col-auto">
+                                            <input id="search_taxid" name="search_references_taxid" type="text" class="form-control"
+                                                placeholder="Reference Taxid" {% if search_references_taxid %} value="{{ search_references_taxid }}" {% endif %}>
+                                        </div>
+
+                                        <div class="col-auto">
+                                            <button type="submit" class="btn btn-small btn-dark"><i class="fa fa-search"></i> Search</button>
+                                        </div>
+                                    </div>
                                 </form>
                             </th>
                         </tr>

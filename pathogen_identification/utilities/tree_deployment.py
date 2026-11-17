@@ -30,8 +30,8 @@ from pathogen_identification.utilities.update_DBs_tree import (
     Update_RunMain_Initial, Update_RunMain_Secondary)
 from pathogen_identification.utilities.utilities_pipeline import (
     PipelineTree, Utils_Manager)
-from pathogen_identification.utilities.utilities_views import (
-    ReportSorter, final_report_best_cov_by_accid)
+from pathogen_identification.utilities.utilities_views import \
+    run_reference_overlap_analysis
 from settings.constants_settings import ConstantsSettings
 from utils.utils import Utils
 
@@ -80,6 +80,12 @@ class PathogenIdentification_TreeDeployment(PathogenIdentificationDeploymentCore
         self.sent = False
         self.assembly_udated = False
         self.classification_updated = False
+    
+    @property
+    def run_pk(self):
+        if self.run_engine is not None:
+            return self.run_engine.run_pk
+        return None
 
 
 class Tree_Node:
@@ -119,37 +125,8 @@ class Tree_Node:
         self.leaves = pipe_tree.leaves_from_node_using_graph(node_index)
 
     def run_reference_overlap_analysis(self):
-        # run = RunMain.objects.filter(parameter_set=self.parameter_set).first()
-
-        report_layout_params = TelevirParameters.get_report_layout_params(
-            project_pk=self.parameter_set.project.pk
-        )
-
-        runs = RunMain.objects.filter(parameter_set=self.parameter_set).exclude(run_type=RunMain.RUN_TYPE_STORAGE)
-        
-        for run in runs:
-
-            final_report = FinalReport.objects.filter(
-                sample=self.parameter_set.sample, run=run
-            ).order_by("-coverage")
-            #
-            report_sorter = ReportSorter(
-                self.parameter_set.sample, final_report, report_layout_params
-            )
-            report_sorter.sort_reports_save()
-            report_sorter.reports_aggregate_register(report_layout_params, run)
-
-        final_reports = FinalReport.objects.filter(
-            sample=self.parameter_set.sample
-        ).order_by("-coverage")
-
-        final_reports = final_report_best_cov_by_accid(final_reports)
-        report_sorter = ReportSorter(
-            self.parameter_set.sample, final_reports, report_layout_params
-        )
-        report_sorter.sort_reports_save()
-        report_sorter.reports_aggregate_register(report_layout_params)
-
+        return run_reference_overlap_analysis(self.parameter_set.sample, self.parameter_set)
+    
     def receive_run_manager(self, run_manager: PathogenIdentification_TreeDeployment):
         run_manager.prefix = f"run_leaf_{self.node_index}"
         run_manager.configure_constants()
@@ -236,7 +213,12 @@ class Tree_Node:
         self.parameter_set.status = ParameterSet.STATUS_ERROR
         self.parameter_set.save()
 
-        # self.run_manager.delete_run()
+        if self.run_manager.run_pk == None:
+            return True
+
+        run = RunMain.objects.get(pk=self.run_manager.run_pk)
+        run.status = RunMain.STATUS_ERROR
+        run.save()
 
         return True
 
@@ -480,6 +462,7 @@ class Tree_Progress:
             self.output_directory = temp_dir
 
         self.initialize_nodes()
+        
         self.determine_current_module_from_nodes()
 
     def setup_deployment_manager(self):
@@ -506,10 +489,18 @@ class Tree_Progress:
     def register_node_leaves(self, node: Tree_Node):
         if node.node_index in node.leaves:
             self.register_finished(node)
+            
+        for leaf in node.leaves:            
+            leaf_node = self.spawn_node_child_prepped(node, leaf)
+            leaf_node.branch = [x[0] for x in self.tree.paths_to_node(leaf_node.node_index)[0]]
 
-        for leaf in node.leaves:
-            leaf_node = self.spawn_node_child(node, leaf)
-            _ = self.register_node_safe(leaf_node)
+            leaf_node.parameters = leaf_node.determine_params(self.tree, self.sample)
+            self.register_node(leaf_node)
+            leaf_node.run_manager.configure_constants()
+            leaf_node.run_manager.import_params(leaf_node.parameters)
+            leaf_node.run_manager.run_main_prep_check_first()
+            _update_success = self.update_node_dbs(leaf_node)
+
 
     def update_node_leaves_dbs(self, node: Tree_Node):
         for leaf in node.leaves:
@@ -520,7 +511,7 @@ class Tree_Progress:
             if not update_success:
                 self.logger.warning(f"Node {leaf_node.node_index} failed to update databases")
                 leaf_node = self.spawn_node_child(node, leaf)
-                # self.submit_node_run(leaf_node)
+                # 
                 _ = leaf_node.register_failed(
                     self.project, self.sample, self.tree
                 )
@@ -558,6 +549,18 @@ class Tree_Progress:
                 self.project, self.sample, self.tree
             )
 
+    def register_failed_leaves(self):
+        for node in self.current_nodes:
+            if node.node_index in node.leaves:
+                registration_success = node.register_failed(
+                    self.project, self.sample, self.tree
+                )
+            for leaf in node.leaves:
+                leaf_node = self.spawn_node_child(node, leaf)
+                registration_success = leaf_node.register_failed(
+                    self.project, self.sample, self.tree
+                )
+
     def initialize_nodes(self):
         origin_node = Tree_Node(
             self.tree,
@@ -569,8 +572,8 @@ class Tree_Progress:
         run_manager = self.setup_deployment_manager()
 
         origin_node.receive_run_manager(run_manager)
-
         self.register_node_leaves(origin_node)
+        self.update_node_leaves_dbs(origin_node)
 
         self.current_nodes = [origin_node]
 
@@ -635,14 +638,16 @@ class Tree_Progress:
 
         return registraction_success
 
-    def update_node_dbs(self, node: Tree_Node, step="initial"):
+    def update_node_dbs(self, node: Tree_Node):
 
         try:
-            db_updated = Update_RunMain_Initial(
+            db_updated, run_main = Update_RunMain_Initial(
                 node.run_manager.run_engine, node.parameter_set
             )
-            if not db_updated:
+            if not db_updated or run_main is None:
                 return False
+
+            node.run_manager.run_engine.update_run_main(run_main)
 
             if (
                 node.run_manager.run_engine.qc_performed
@@ -1030,9 +1035,13 @@ class Tree_Progress:
         for node in self.current_nodes:
             for leaf in node.leaves:
                 leaf_node = self.spawn_node_child(node, leaf)
-                _ = leaf_node.register_running(self.project, self.sample, self.tree)
-                leaf_node.run_reference_overlap_analysis()
-                _ = self.register_finished(leaf_node)
+                try:
+                    _ = leaf_node.register_running(self.project, self.sample, self.tree)
+                    leaf_node.run_reference_overlap_analysis()
+                    _ = self.register_finished(leaf_node)
+                except Exception as e:
+                    leaf_node.register_failed(self.project, self.sample, self.tree)
+
 
     def calculate_report_overlaps_runs(self):
         for node in self.current_nodes:
@@ -1057,6 +1066,8 @@ class Tree_Progress:
             ConstantsSettings.PIPELINE_NAME_host_depletion: self.run_nodes_sequential,
             ConstantsSettings.PIPELINE_NAME_assembly: self.run_nodes_sequential,
             ConstantsSettings.PIPELINE_NAME_remapping: self.run_nodes_remap,
+            ConstantsSettings.PIPELINE_NAME_validation_qc: self.run_nodes_sequential,
+            ConstantsSettings.PIPELINE_NAME_validation_depletion: self.run_nodes_sequential,
             ConstantsSettings.PIPELINE_NAME_remap_filtering: self.run_nodes_sequential,
             ConstantsSettings.PIPELINE_NAME_map_filtering: self.run_nodes_sequential,
             ConstantsSettings.PIPELINE_NAME_metagenomics_screening: self.run_nodes_sequential,
@@ -1074,6 +1085,8 @@ class Tree_Progress:
         action = map_actions[self.current_module]
 
         action()
+
+        print(f"Current module: {self.current_module}, current nodes: {[node.node_index for node in self.current_nodes]}")
 
         for node in self.current_nodes:
             if self.classification_monitor.ready_to_merge(node):
@@ -1354,8 +1367,8 @@ class TreeProgressGraph:
         for ps in existing_parameter_sets:
             node_leaves = ps.get_leaf_descendants()
             leaf_node = node_leaves[0]
-            leaf_node_index = leaf_node.index
-            node_params = self.pipeline_utils.get_leaf_parameters(leaf_node)
+            leaf_node_index = leaf_node.tree_index
+            node_params = self.pipeline_utils.generate_leaf_parameters(leaf_node)
             node_params = node_params[["module", "software"]]
             node_params = node_params.set_index("module")
             node_params = node_params.T
@@ -1374,7 +1387,10 @@ class TreeProgressGraph:
             ConstantsSettings.PIPELINE_NAME_contig_classification,
             ConstantsSettings.PIPELINE_NAME_read_classification,
             ConstantsSettings.PIPELINE_NAME_metagenomics_screening,
+            ConstantsSettings.PIPELINE_NAME_validation_qc,
+            ConstantsSettings.PIPELINE_NAME_validation_depletion,
             ConstantsSettings.PIPELINE_NAME_remapping,
+            ConstantsSettings.PIPELINE_NAME_remap_filtering,
             "leaves",
         ]
 

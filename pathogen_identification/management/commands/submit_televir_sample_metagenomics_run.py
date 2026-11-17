@@ -86,23 +86,14 @@ class Command(BaseCommand):
         target_sample = PIProject_Sample.objects.get(pk=options["sample_id"])
         project = target_sample.project
 
-        metagenomics = False
-        mapping_only = False
-        screening = False
-
         leaf_index = options["leaf_id"]
         combined_analysis = options["combined_analysis"]
         mapping_request = options["mapping_request"]
         mapping_run_pk = options["mapping_run_id"]
 
         if mapping_request:
-            mapping_only = True
             if mapping_run_pk is None:
                 raise Exception("mapping_run_id is required for mapping request")
-        elif combined_analysis:
-            mapping_only = True
-        else:
-            screening = True
 
         matched_path_node = SoftwareTreeNode.objects.get(pk=leaf_index)
 
@@ -112,7 +103,7 @@ class Command(BaseCommand):
 
         process_SGE.set_process_controler(
             user,
-            process_controler.get_name_televir_project_sample_metagenomics_run(
+            process_controler.get_name_televir_sample_mapping(
                 sample_pk=target_sample.pk,
                 leaf_pk=matched_path_node.pk,
             ),
@@ -121,15 +112,6 @@ class Command(BaseCommand):
 
         ### UTILITIES
         utils = Utils_Manager()
-        #software_utils = SoftwareTreeUtils(user, project, sample=target_sample)
-
-        #local_tree = software_utils.generate_software_tree_safe(
-        #    project,
-        #    sample=target_sample,
-        #    metagenomics=metagenomics,
-        #    screening=screening,
-        #    mapping_only=mapping_only,
-        #)
 
         pipeline_tree_index = matched_path_node.software_tree.pk #local_tree.software_tree_pk
         pipeline_tree_query = SoftwareTree.objects.get(pk=pipeline_tree_index)
@@ -197,7 +179,7 @@ class Command(BaseCommand):
 
             process_SGE.set_process_controler(
                 user,
-                process_controler.get_name_televir_project_sample_metagenomics_run(
+                process_controler.get_name_televir_sample_mapping(
                     sample_pk=target_sample.pk,
                     leaf_pk=matched_path_node.pk,
                 ),
@@ -206,11 +188,14 @@ class Command(BaseCommand):
 
         except Exception as e:
             print(e)
-            # graph_progress.generate_graph()
+            from pathogen_identification.models import RawReference
+            references = RawReference.objects.filter(run = mapping_run)
+            for reference in references:
+                reference.update_raw_reference_status_fail()
 
             process_SGE.set_process_controler(
                 user,
-                process_controler.get_name_televir_project_sample_metagenomics_run(
+                process_controler.get_name_televir_sample_mapping(
                     sample_pk=target_sample.pk,
                     leaf_pk=matched_path_node.pk,
                 ),

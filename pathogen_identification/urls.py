@@ -39,7 +39,7 @@ urlpatterns = [
         name="teleflu_workflow_igv",
     ),
     path(
-        "teleflu_mapping_files/<int:pk>",
+        "teleflu_project/teleflu_mapping_files/<int:pk>",
         PIviews.get_mapping_bams_zip,
         name="teleflu_mapping_files",
     ),
@@ -144,6 +144,11 @@ urlpatterns = [
         name="create_user_project_tag",
     ),
     re_path(
+        r"delete_tag",
+        PIajax_views.delete_project_tag,
+        name="delete_project_tag",
+    ),
+    re_path(
         r"project_tag_candidates",
         PIajax_views.possible_project_tags,
         name="project_tag_candidates"
@@ -152,6 +157,11 @@ urlpatterns = [
         r"assign_tag_to_project",
         PIajax_views.assign_tag_to_project,
         name="assign_tag_to_project",
+    ),
+    path(
+        "remove_tag_from_project",
+        PIajax_views.remove_tag_from_project,
+        name="remove_user_project_tag",
     ),
     re_path(
         r"add_panels_to_project",
@@ -274,6 +284,11 @@ urlpatterns = [
         name="map_panels_project_samples",
     ),
     path(
+        "deploy_control_mapping_request",
+        PIajax_views.submit_control_mapping,
+        name="map_controls_project_samples",
+    ),
+    path(
         "deploy_mapping_screeing",
         PIajax_views.submit_sample_screening_televir,
         name="deploy_screening_televir_project_sample",
@@ -380,7 +395,7 @@ urlpatterns = [
     ),
     path(
         "ajax/submit_sample_metagenomics_televir",
-        PIajax_views.submit_sample_metagenomics_televir,
+        PIajax_views.submit_sample_televir_combined_mapping,
         name="deploy_metagenomics_televir_project_sample",
     ),
     path(
@@ -427,6 +442,11 @@ urlpatterns = [
         "ajax/kill_televir_project_sample",
         PIajax_views.kill_televir_project_all_sample,
         name="kill_all_televir_project_sample",
+    ),  ## remove a televir project
+    path(
+        "ajax/kill_teleflu_workflow",
+        PIajax_views.kill_televir_project_focus,
+        name="kill_teleflu_workflow",
     ),  ## remove a televir project
     path(
         "ajax/deploy_televir_map",

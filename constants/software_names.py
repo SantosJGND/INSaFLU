@@ -491,6 +491,8 @@ class SoftwareNames(object):
     SOFTWARE_IRMA = os.path.join(settings.DIR_SOFTWARE, "irma/irma.sh")
 
     ### Nextstrain
+    SOFTWARE_NEXTSTRAIN_BIN = "/home/flu_user/.nextstrain/cli-standalone/nextstrain"
+
     SOFTWARE_NEXTSTRAIN_DIR = os.path.join(settings.DIR_SOFTWARE, "nextstrain/")
     SOFTWARE_NEXTSTRAIN_VERSION = "0.1"
     SOFTWARE_NEXTSTRAIN = os.path.join(
@@ -651,6 +653,10 @@ class SoftwareNames(object):
     SOFTWARE_REMAP_PARAMS_max_accids = "--max-accids"
     SOFTWARE_REMAP_PARAMS_include_manual = "--include-manual"
     SOFTWARE_REMAP_PARAMS_include_manual_options = ["OFF", "ON"]
+    SOFTWARE_REMAP_PARAMS_recall_model_type = "--recall-model"
+    SOFTWARE_REMAP_PARAMS_clustering_model_type = "--clustering-model"
+    SOFTWARE_REMAP_PARAMS_recall_default_model = "Fixed"
+    SOFTWARE_REMAP_PARAMS_clustering_default_model = "Fixed"
 
     SOFTWARE_COMBINED_min_score = "--min-score"
     SOFTWARE_COMBINED_include_screening = "--screening"
@@ -663,6 +669,8 @@ class SoftwareNames(object):
     SOFTWARE_televir_report_layout_default = ""
     SOFTWARE_televir_report_layout_version = "1.0.0"
     SOFTWARE_televir_report_layout_flag_name = "--flag-type"
+    SOFTWARE_televir_report_description_filters = "--filters"
+    SOFTWARE_televir_report_description_filters_default= "phage;plasmid;vector;synthetic;recombinant;chimeric"
     SOFTWARE_televir_report_layout_threshold_name = "--r-overlap"
     SOFTWARE_REMAP_PARAMS_min_quality = "--qualityThreshold"  # "--min-quality"
     SOFTWARE_REMAP_PARAMS_max_mismatch = "--mismatchThreshold"  # "--max-mismatch"
@@ -678,6 +686,9 @@ class SoftwareNames(object):
     SOFTWARE_PRINSEQ_name = "Prinseq++"
     SOFTWARE_PRINSEQ_name_extended = (
         "Preprocessing - Prinseq++ (remove low complexity reads)"
+    )
+    SOFTWARE_PRINSEQ_VALIDATION_name_extended = (
+        "Preprocessing - Prinseq++ (remove low complexity reads) - Validation"
     )
     SOFTWARE_PRINSEQ_VERSION = "1.2.4"
     SOFTWARE_PRINSEQ_lc_entropy = "--lc_entropy"
@@ -794,6 +805,7 @@ class SoftwareNames(object):
     )
     SOFTWARE_BWA_FILTER_name = "BWA-Filter"
     SOFTWARE_BWA_FILTER_name_extended = "BWA - Filter"
+    SOFTWARE_BWA_VALIDATION_name_extended = "BWA - Validation Filter"
     SOFTWARE_BWA_FILTER_VERSION = "0.7.17"
     SOFTWARE_BWA_FILTER_parameters = "mem -t 4 -M -R '@RG\tID:foo\tSM:bar\tPL:illumina'"
     SOFTWARE_BWA_FILTER_PARAMETERS_TWO_SEQUENCES = (
@@ -1108,6 +1120,7 @@ class SoftwareNames(object):
 
     ### software with application in multiple pipeline_steps:
     polyvalent_software = [
+        SOFTWARE_PRINSEQ_name,
         SOFTWARE_BWA_FILTER_name,
         SOFTWARE_CENTRIFUGE_name,
         SOFTWARE_BWA_name,
@@ -1121,6 +1134,10 @@ class SoftwareNames(object):
     # pipeline_steps per software, for software with multiple pipeline_steps.
 
     polyvalent_software_pipelines = {
+        SOFTWARE_PRINSEQ_name: [
+            ConstantsSettings.PIPELINE_NAME_extra_qc,
+            ConstantsSettings.PIPELINE_NAME_validation_qc,
+        ],
         SOFTWARE_KRAKEN2_name: [
             ConstantsSettings.PIPELINE_NAME_contig_classification,
             ConstantsSettings.PIPELINE_NAME_read_classification,
@@ -1146,6 +1163,7 @@ class SoftwareNames(object):
         ],
         SOFTWARE_BWA_name: [
             ConstantsSettings.PIPELINE_NAME_host_depletion,
+            ConstantsSettings.PIPELINE_NAME_validation_depletion,
             ConstantsSettings.PIPELINE_NAME_read_classification,
         ],
         SOFTWARE_MSAMTOOLS_name: [
@@ -1158,6 +1176,7 @@ class SoftwareNames(object):
         ],
         SOFTWARE_BWA_FILTER_name: [
             ConstantsSettings.PIPELINE_NAME_extra_qc,
+            ConstantsSettings.PIPELINE_NAME_validation_qc,
             ConstantsSettings.PIPELINE_NAME_host_depletion,
         ],
     }

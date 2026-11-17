@@ -23,8 +23,9 @@ from pathogen_identification.models import (ContigClassification, FinalReport,
                                             ReadClassification,
                                             ReferenceMap_Main, ReferencePanel,
                                             ReferenceSourceFileMap,
-                                            ReportAggregate, ReportGroup,
-                                            RunAssembly, RunDetail, RunMain,
+                                            ReferenceTaxid, ReportAggregate,
+                                            ReportGroup, RunAssembly,
+                                            RunDetail, RunMain,
                                             RunReadsRegister, SoftwareTree,
                                             SoftwareTreeNode, TelevirRunQC)
 from pathogen_identification.utilities.clade_objects import Clade
@@ -262,8 +263,9 @@ class SampleReadsRetrieve:
                     continue
 
                 host_depletion_software = params_df.loc[
-                    ConstantsSettings.PIPELINE_NAME_host_depletion, "software"
+                    ConstantsSettings.PIPELINE_NAME_host_depletion, "software_name"
                 ]
+
                 host_depletion_parameters = params_df.loc[
                     ConstantsSettings.PIPELINE_NAME_host_depletion, "value"
                 ]
@@ -281,7 +283,7 @@ class SampleReadsRetrieve:
                 if ConstantsSettings.PIPELINE_NAME_viral_enrichment in params_df.index:
 
                     enrichment_software = params_df.loc[
-                        ConstantsSettings.PIPELINE_NAME_viral_enrichment, "software"
+                        ConstantsSettings.PIPELINE_NAME_viral_enrichment, "software_name"
                     ]
                     enrichment_parameters = params_df.loc[
                         ConstantsSettings.PIPELINE_NAME_viral_enrichment, "value"
@@ -303,7 +305,24 @@ class SampleReadsRetrieve:
                     psample.qc = True
                     qc_multiple = MultipleQCSoftware([])
                     for row in qc_block.iterrows():
-                        qc_software = row[1]["software"]
+                        qc_software = row[1]["software_name"]
+                        qc_parameters = row[1]["value"]
+                        software_qc = QCSoftware(qc_software, qc_parameters)
+                        qc_multiple.add_software(software_qc)
+                    psample.software_qc = qc_multiple
+
+                if ConstantsSettings.PIPELINE_NAME_validation_qc in params_df.index:
+                    psample.process_type = f"{ConstantsSettings.PIPELINE_NAME_validation_qc} + {psample.process_type}"
+                    psample.qc = True
+
+                    qc_block = params_df.loc[
+                        params_df.index == ConstantsSettings.PIPELINE_NAME_validation_qc
+                    ]
+
+                    psample.qc = True
+                    qc_multiple = MultipleQCSoftware([])
+                    for row in qc_block.iterrows():
+                        qc_software = row[1]["software_name"]
                         qc_parameters = row[1]["value"]
                         software_qc = QCSoftware(qc_software, qc_parameters)
                         qc_multiple.add_software(software_qc)
@@ -319,7 +338,7 @@ class SampleReadsRetrieve:
                     continue
 
                 enrichment_software = params_df.loc[
-                    ConstantsSettings.PIPELINE_NAME_viral_enrichment, "software"
+                    ConstantsSettings.PIPELINE_NAME_viral_enrichment, "software_name"
                 ]
                 enrichment_parameters = params_df.loc[
                     ConstantsSettings.PIPELINE_NAME_viral_enrichment, "value"
@@ -345,7 +364,24 @@ class SampleReadsRetrieve:
                     psample.qc = True
                     qc_multiple = MultipleQCSoftware([])
                     for row in qc_block.iterrows():
-                        qc_software = row[1]["software"]
+                        qc_software = row[1]["software_name"]
+                        qc_parameters = row[1]["value"]
+                        software_qc = QCSoftware(qc_software, qc_parameters)
+                        qc_multiple.add_software(software_qc)
+                    psample.software_qc = qc_multiple
+
+                if ConstantsSettings.PIPELINE_NAME_validation_qc in params_df.index:
+                    psample.process_type = f"{ConstantsSettings.PIPELINE_NAME_validation_qc} + {psample.process_type}"
+                    psample.qc = True
+
+                    qc_block = params_df.loc[
+                        params_df.index == ConstantsSettings.PIPELINE_NAME_validation_qc
+                    ]
+
+                    psample.qc = True
+                    qc_multiple = MultipleQCSoftware([])
+                    for row in qc_block.iterrows():
+                        qc_software = row[1]["software_name"]
                         qc_parameters = row[1]["value"]
                         software_qc = QCSoftware(qc_software, qc_parameters)
                         qc_multiple.add_software(software_qc)
@@ -372,7 +408,35 @@ class SampleReadsRetrieve:
                 psample.process_type = ConstantsSettings.PIPELINE_NAME_extra_qc
                 qc_multiple = MultipleQCSoftware([])
                 for row in qc_block.iterrows():
-                    qc_software = row[1]["software"]
+                    qc_software = row[1]["software_name"]
+                    qc_parameters = row[1]["value"]
+                    software_qc = QCSoftware(qc_software, qc_parameters)
+                    qc_multiple.add_software(software_qc)
+                psample.software_qc = qc_multiple
+
+                psample.processed_path_r1 = run.qc_reads_r1
+                if os.path.exists(run.qc_reads_r2):
+                    psample.processed_path_r2 = run.qc_reads_r2
+                processed_samples.append(psample)
+
+
+            elif ConstantsSettings.PIPELINE_NAME_validation_qc in params_df.index:
+                if os.path.exists(run.qc_reads_r1) is False:
+                    continue
+
+                psample = ProcessedSample(
+                    sample=run.run.parameter_set.sample,
+                )
+
+                qc_block = params_df.loc[
+                    params_df.index == ConstantsSettings.PIPELINE_NAME_validation_qc
+                ]
+
+                psample.qc = True
+                psample.process_type = ConstantsSettings.PIPELINE_NAME_validation_qc
+                qc_multiple = MultipleQCSoftware([])
+                for row in qc_block.iterrows():
+                    qc_software = row[1]["software_name"]
                     qc_parameters = row[1]["value"]
                     software_qc = QCSoftware(qc_software, qc_parameters)
                     qc_multiple.add_software(software_qc)
@@ -415,6 +479,7 @@ class SampleReadsRetrieve:
 
 
 class SampleReferenceManager:
+    
     def __init__(self, sample: PIProject_Sample):
         self.sample = sample
         self.software_tree: SoftwareTree = self.proxy_tree_prepare()
@@ -423,6 +488,119 @@ class SampleReferenceManager:
         )
         self.prep_storage()
 
+
+    @staticmethod
+    def aggregate_report_taxa(sample) -> list:
+        latest_report_aggregate = ReportAggregate.objects.filter(
+            sample=sample, run=None
+        ).order_by("-date_created").first()
+
+        if latest_report_aggregate is None:
+            latest_report_aggregate = ReportAggregateEmpty()    
+            report_groups = ReportGroup.objects.none()
+        else:
+            report_groups = ReportGroup.objects.filter(
+                aggregator=latest_report_aggregate
+            )
+
+        sorted_reports = {
+            report_group: ReportList(list(report_group.reports.all())).fetch_report_data(report_group).sort_group_by_private_reads()
+            for report_group in report_groups
+        }
+
+        reported_taxa = {
+            report_group: report_group.main_species for report_group in report_groups
+        }
+
+        # group reports by main species and sort by private reads availability
+        report_taxa = {
+            species: {
+                "species": species,
+                "report_groups": {
+                    rg: sorted_reports[rg] for rg in report_groups if rg.main_species == species
+                },
+                "total_private_counts": sum(
+                    rg.private_counts_safe for rg in report_groups if rg.main_species == species
+                )
+            }
+            for species in set(reported_taxa.values()) if species is not None
+        }
+    
+        if latest_report_aggregate.overlap_heatmap_path is not None:
+            group_map = {}
+
+            for taxon_report in report_taxa.values():
+                for gp in taxon_report["report_groups"].keys():
+                    group_map[gp.name] = taxon_report['species']
+                taxon_report['taxon_heatmap_json'] = []
+            
+            if latest_report_aggregate.overlap_heatmap_json is not None:
+                for cell in latest_report_aggregate.overlap_heatmap_json:
+                    if group_map.get(cell['x']) == group_map.get(cell['y']):
+                        taxon = group_map.get(cell['x'])
+                        if taxon is None:
+                            continue
+                        report_taxa[taxon]['taxon_heatmap_json'].append(cell)
+            
+            for taxon_report in report_taxa.values():
+                if len(taxon_report['taxon_heatmap_json']) == 0 or len(taxon_report['report_groups']) == 1:
+                    taxon_report['taxon_heatmap_json'] = None
+                else:
+                    taxon_report['taxon_heatmap_json'] = json.dumps(taxon_report['taxon_heatmap_json'])
+
+        report_taxa = list(report_taxa.values())
+        for taxon_report in report_taxa:
+            taxon_report['any_in_control'] = any(
+                report.control_flag == FinalReport.CONTROL_FLAG_PRESENT for report_list in taxon_report['report_groups'].values() for report in report_list
+            )
+
+        if any(species is None for species in reported_taxa.values()):
+            unassigned = {
+                "species": {"name": "Unassigned", "taxid": None},
+                "report_groups": {
+                    rg: sorted_reports[rg] for rg in report_groups if rg.main_species is None
+                },
+                "total_private_counts": sum(
+                    rg.private_counts_safe for rg in report_groups if rg.main_species is None
+                ),
+                "any_in_control": False
+            }
+            unassigned["any_in_control"] = all(
+                report.control_flag == FinalReport.CONTROL_FLAG_PRESENT for report_list in unassigned['report_groups'].values() for report in report_list
+            )
+            report_taxa.append(unassigned)
+        
+        report_taxa = sorted(report_taxa, key=lambda x: len(x["report_groups"]), reverse=True)
+        report_taxa = sorted(report_taxa, key=lambda x: x["total_private_counts"], reverse=True)
+
+
+        return report_taxa
+    
+    def report_taxa_to_table(self, report_taxa: list) -> list:
+        table_data = []
+        for taxon_report in report_taxa:
+            species = taxon_report["species"]
+            report_groups = taxon_report["report_groups"]
+            total_private_counts = taxon_report["total_private_counts"]
+            any_in_control = taxon_report["any_in_control"]
+
+            for report_group, report_list in report_groups.items():
+                report = report_list[0]  # Assuming you want to take the first report in the list
+                table_data.append({
+                    "sample": self.sample.name,
+                    "species": species.name if species else "Unassigned",
+                    "report_group": report_group.name,
+                    "total_counts": report_group.total_counts,
+                    "private_counts": report_group.private_counts,
+                    "description": report.description,
+                    "accid": report.accid,
+                    "taxid": report.taxid,
+                })
+        
+        table_data = sorted(table_data, key=lambda x: (x["species"] if x["species"] else "Unassigned", x["report_group"], x["private_counts"]), reverse=True)
+        
+        return table_data
+    
     def add_reference(self, reference: ReferenceSourceFileMap):
         ref_description = reference.description
 
@@ -492,7 +670,7 @@ class SampleReferenceManager:
 
         except SoftwareTreeNode.DoesNotExist:
             software_tree_node = SoftwareTreeNode.objects.create(
-                index=-1,
+                tree_index=-1,
                 software_tree=self.software_tree,
                 name="storage",
                 parent=None,
@@ -501,7 +679,6 @@ class SampleReferenceManager:
 
         except Exception as e:
             print(e)
-            print("multiple objects returned")
             software_tree_node = None
 
         return software_tree_node
@@ -654,6 +831,10 @@ class SampleReferenceManager:
 
         return mapping_run
 
+    def control_mapping_run_from_leaf(self, leaf: SoftwareTreeNode) -> RunMain:
+        """ """
+        return self.create_mapping_run(leaf, RunMain.RUN_TYPE_CONTROL_MAPPING)
+
     def mapping_run_from_leaf(self, leaf: SoftwareTreeNode) -> RunMain:
         """ """
         return self.create_mapping_run(leaf, RunMain.RUN_TYPE_COMBINED_MAPPING)
@@ -679,23 +860,23 @@ class RunMainWrapper:
 
     def __init__(self, run: RunMain):
 
-        self.name = f"run {run.parameter_set.leaf.index}"
+        self.name = f"run {run.parameter_set.leaf.id_str}"
 
         self.record = run
         self.user = run.project.owner
         self.project = run.project
         self.sample = run.sample
         self.parameter_set = run.parameter_set
-        self.pk = run.pk
+        self.pk = run.pk 
 
-        if run.parameter_set is None:
+        if run.parameter_set is None or run.parameter_set.leaf is None:
             self.params_df = pd.DataFrame()
 
         else:
             utils_manager = Utils_Manager()
             self.params_df = utils_manager.get_leaf_parameters(run.parameter_set.leaf)
 
-            self.params_df.drop_duplicates(["module", "software"], inplace=True)
+            self.params_df.drop_duplicates(["module", "software_name"], inplace=True)
             self.params_df.set_index("module", inplace=True)
 
         self.run_type = run.run_type
@@ -734,7 +915,7 @@ class RunMainWrapper:
 
         if pipeline_name in self.params_df.index:
 
-            softwares_column = self.params_df.loc[pipeline_name, "software"]
+            softwares_column = self.params_df.loc[pipeline_name, "software_name"]
 
             if isinstance(softwares_column, str):
                 softwares_column = [softwares_column]
@@ -870,6 +1051,7 @@ class EmptyRemapMain:
     coverage_maximum = 0
     success = False
     coverage_mean = ""
+    missing_log_exists = False
 
 
 class FinalReportWrapper:
@@ -901,12 +1083,21 @@ class FinalReportWrapper:
                     raise e
 
         self.private_reads = 0
+        self.run_index = report.run.pk if report.run else None
+        self.data_exists = False
         self.control_flag = report.control_flag
         self.control_flag_str = report.control_flag_str
         self.first_in_group = False
         self.row_class_name = "secondary-row"
         self.display = "none"
         self.report_pk = report.pk
+    
+    @property
+    def found_in(self):
+        try:
+            return RunMain.objects.filter(pk= self.run_index)
+        except RunMain.DoesNotExist:
+            return RunMain.objects.none()
 
     @staticmethod
     def prep_for_static(filepath: str) -> str:
@@ -984,13 +1175,12 @@ class FinalReportCompound:
         strings_return = []
 
         for ref in references_found_in:
+            if ref.run is None or ref.run.parameter_set is None or ref.run.parameter_set.leaf is None:
+                continue
 
-            index_string = f"{ref.run.parameter_set.leaf.software_tree.global_index}-{ref.run.parameter_set.leaf.index}"
+            index_string = f"{ref.run.parameter_set.leaf.software_tree.global_index}-{ref.run.parameter_set.leaf.id_str}"
 
-            if ref.run.run_type in [
-                RunMain.RUN_TYPE_MAP_REQUEST,
-                RunMain.RUN_TYPE_PANEL_MAPPING,
-            ]:
+            if ref.run.run_type in RunMain.RUN_TYPE_MAPPINGS:
                 index_string = "r" + index_string
 
             if ref.run == report.run:
@@ -1061,6 +1251,8 @@ class FinalReportGroup:
         )
 
         self.update_max_coverage()
+
+    
 
     def reports_have_private_reads(self) -> bool:
         for report in self.group_list:
@@ -1169,6 +1361,27 @@ def set_control_reports(project_pk: int):
             project=project, is_control=True
         )
 
+        control_compound_raw_references = RawReferenceCompoundModel.objects.filter(
+            sample__in=control_samples
+        )
+
+        control_unmapped = control_compound_raw_references.filter(
+            mapped_raw_reference__isnull=True
+        ).distinct("taxid").values_list("taxid", flat=True)
+        control_unmapped = set(control_unmapped)
+
+        control_mapped_no_report = control_compound_raw_references.filter(
+            mapped_raw_reference__isnull=False,
+            mapped_final_report__isnull=True,
+        ).distinct("taxid").values_list("taxid", flat=True)
+        control_mapped_no_report = set(control_mapped_no_report)
+
+        control_mapped_with_report = control_compound_raw_references.filter(
+            mapped_raw_reference__isnull=False,
+            mapped_final_report__isnull=False,
+        ).distinct("taxid").values_list("taxid", flat=True)
+        control_mapped_with_report = set(control_mapped_with_report)
+
         control_reports = FinalReport.objects.filter(
             sample__in=control_samples
         ).distinct("taxid")
@@ -1181,8 +1394,12 @@ def set_control_reports(project_pk: int):
         )
 
         for sample_report in other_reports:
-            if sample_report.taxid in control_report_taxids_set:
+            if sample_report.taxid in control_mapped_with_report:
                 sample_report.control_flag = FinalReport.CONTROL_FLAG_PRESENT
+            elif sample_report.taxid in control_mapped_no_report:
+                sample_report.control_flag = FinalReport.CONTROL_FLAG_MAPPED_NO_REPORT
+            elif sample_report.taxid in control_unmapped:
+                sample_report.control_flag = FinalReport.CONTROL_FLAG_UNMAPPED
             else:
                 sample_report.control_flag = FinalReport.CONTROL_FLAG_NONE
 
@@ -1193,7 +1410,8 @@ def set_control_reports(project_pk: int):
             report.save()
 
     except Exception as e:
-        print(e)
+        import traceback
+        traceback.print_exc()   
         pass
 
 
@@ -1228,6 +1446,7 @@ def recover_assembly_contigs(run_main: RunMain, run_assembly: RunAssembly):
 class ReportList:
     def __init__(self, reports: List[FinalReport]):
         self.reports = [FinalReportWrapper(report) for report in reports]
+        self.private_reads = 0
 
     def __iter__(self):
         return iter(self.reports)
@@ -1239,7 +1458,7 @@ class ReportList:
         return self.reports[index]
 
 
-    def set_private_reads(self, report_group: ReportGroup):
+    def fetch_report_data(self, report_group: ReportGroup):
         """
         Set private reads for each report.
         """
@@ -1249,8 +1468,10 @@ class ReportList:
                 report_group = report_group
             )
             report.private_reads = report_data.private_reads
+            report.data_exists = report_data.data_exists
 
         return self
+    
 
     def sort_group_by_private_reads(self):
         """
@@ -1304,6 +1525,14 @@ class ReportAggregateEmpty:
     @property
     def n_reports_analyzed(self):
         return 0
+    
+    @property
+    def report_groups(self):
+        return ReportGroup.objects.none()
+
+    @property
+    def private_reads_available(self):
+        return False
 
 
 class ReportSorter:
@@ -1320,8 +1549,8 @@ class ReportSorter:
         report_layout_params: LayoutParams,
         force=False,
         level=0,
+        filter = True
     ):
-        self.reports: List[FinalReport] = reports
         self.sample = sample
         self.analysis_empty = False
         self.max_error_rate = 0
@@ -1329,6 +1558,13 @@ class ReportSorter:
         self.max_mapped_prop = 0
         self.max_coverage = 0
         self.max_windows_covered = 1
+        self.report_layout_params = report_layout_params
+
+        if filter:
+            reports = self.filter_reports(reports)
+          
+        self.reports: List[FinalReport] = reports
+
         self.error_rate_available = self.assess_error_rate_available()
         self.quality_avg_available = self.assess_quality_avg_available()
         self.assess_max_mapped_prop()
@@ -1348,12 +1584,8 @@ class ReportSorter:
 
         self.level = level
 
-        self.reports_available = len(reports) > 0
-
-        self.media_dir = sample.media_dir
-
+        self.clustering_model_type = TelevirParameters.get_clustering_model(self.sample.project.pk) 
         self.metadata_df = self.prep_metadata_df()
-        self.fasta_files = self.metadata_df.file.tolist()
 
         self.overlap_manager = ReadOverlapManager(
             self.metadata_df,
@@ -1362,48 +1594,104 @@ class ReportSorter:
             str(self.sample.pk),
             force_tree_rebuild=force,
             max_reads=PIConstantsSettings.MAX_READS_INPUT,
+            clustering_model_type=self.clustering_model_type,
         )
 
-        self.all_clades_df_path = os.path.join(self.media_dir, self.all_clade_filename)
-
-        self.analysis_df_path = os.path.join(
-            self.media_dir,
-            self.analysis_filename.format(
-                report_layout_params.shared_proportion_threshold
-            ),
-        )
-
-        self.tree_plot_path = self.overlap_manager.tree_plot_path
-        #
-        self.tree_plot_exists = os.path.exists(self.tree_plot_path)
-        self.tree_plot_path = "/media/" + self.tree_plot_path.split("media/")[-1]
-
-        self.overlap_heatmap_exists = os.path.exists(
-            self.overlap_manager.overlap_matrix_plot_path
-        )
-        self.overlap_heatmap_path = (
-            "/media/"
-            + self.overlap_manager.overlap_matrix_plot_path.split("media/")[-1]
-        )
-        self.overlap_pca_exists = os.path.exists(
-            self.overlap_manager.overlap_pca_plot_path
-        )
-        self.overlap_pca_path = (
-            "/media/" + self.overlap_manager.overlap_pca_plot_path.split("media/")[-1]
-        )
+        self.fasta_files = self.metadata_df.file.tolist()
+        self.reports_available = len(self.report_dict) > 0 or len(self.excluded_dict) > 0
+        self.fasta_files = self.metadata_df.file.tolist()
 
         #####################################
         #####################################
         self.logger = logging.getLogger(__name__)
         self.logger.info("ReportSorter: {}".format(self.media_dir))
         self.logger.setLevel(logging.DEBUG)
+
+
+    @property
+    def media_dir(self):
+        return self.sample.media_dir
+
+    @property
+    def all_clades_df_path(self):
+        return os.path.join(self.media_dir, self.all_clade_filename)
+
+    @property
+    def analysis_df_path(self):
+        return os.path.join(
+            self.media_dir,
+            self.analysis_filename.format(
+            self.report_layout_params.shared_proportion_threshold
+            ),
+        )
+
+    @property
+    def tree_plot_path(self):
+        path = self.overlap_manager.tree_plot_path
+        if os.path.exists(path):
+            return "/media/" + path.split("media/")[-1]
+        return path
+
+    @property
+    def tree_plot_exists(self):
+        return os.path.exists(self.overlap_manager.tree_plot_path)
+
+    @property
+    def overlap_heatmap_path(self):
+        path = self.overlap_manager.overlap_matrix_plot_path
+        if os.path.exists(path):
+            return "/media/" + path.split("media/")[-1]
+        return path
+
+    @property
+    def overlap_heatmap_exists(self):
+        return os.path.exists(self.overlap_manager.overlap_matrix_plot_path)
+
+    @property
+    def overlap_pca_path(self):
+        path = self.overlap_manager.overlap_pca_plot_path
+        if os.path.exists(path):
+            return "/media/" + path.split("media/")[-1]
+        return path
+
+    @property
+    def overlap_pca_exists(self):
+        return os.path.exists(self.overlap_manager.overlap_pca_plot_path)    
     
     @property
     def sort_performed(self):
         return self.analysis_empty == False
 
-    def build_tree(self):
+    @property
+    def project(self):
+        if self.sample.project is None:
+            raise ValueError("Sample has no associated project.")
+        return self.sample.project
+    
 
+    def filter_reports(self, reports: List[FinalReport]):
+        """
+        Description filter based on settings flagsa"""
+        from django.db.models import Q
+
+        flags = TelevirParameters.get_report_filters(self.project.pk)
+
+        queries= []
+
+        if not flags:
+            return reports
+
+        for flag in flags:
+            queries.append(Q(description__icontains=flag))
+
+        if queries:
+            queries = Q(*queries, _connector=Q.OR)
+            reports = [report for report in reports if FinalReport.objects.filter(pk=report.pk).filter(queries).exists()]
+        
+        
+        return reports
+
+    def build_tree(self):
         if self.reports_available:
             self.overlap_manager.build_tree()
 
@@ -1630,13 +1918,10 @@ class ReportSorter:
 
         if not os.path.exists(overlap_manager.distance_matrix_path):
             return False
-
+        
         if not os.path.exists(overlap_manager.clade_statistics_path):
             return False
-
-        if not os.path.exists(overlap_manager.clade_statistics_path):
-            return False
-
+        
         if not overlap_manager.all_accs_analyzed():
             return False
 
@@ -1727,7 +2012,8 @@ class ReportSorter:
         """
         ### time operations
         self.logger.info("generating tree")
-
+        self.build_tree()
+        self.logger.info("getting leaf clades")
         clades = self.overlap_manager.get_leaf_clades(force=force)
 
         self.update_report_excluded_dicts(self.overlap_manager)
@@ -1738,23 +2024,21 @@ class ReportSorter:
         """
         register in table
         """
+
+
+        self.sort_reports_save()
+
         sorted_reports = self.get_reports_compound()
         excluded_reports_exist = self.check_excluded_exist()
         empty_reports = self.get_reports_empty()
 
         if excluded_reports_exist and self.analysis_empty is False:
-
             if len(empty_reports.group_list) > 0:
                 sorted_reports.append(empty_reports)
 
-        # check has control_flag present
-        # has_controlled_flag = False if sample_main.is_control else True
-        #########
-        self.build_tree()
         clade_heatmap_json = self.clade_heatmap_json(
             to_keep=[report_group.name for report_group in sorted_reports]
         )
-
         #########
         private_reads_available = False
         for group in sorted_reports:
@@ -1762,7 +2046,8 @@ class ReportSorter:
                 private_reads_available = True
                 break
 
-        from django.db import transaction
+
+
         with transaction.atomic():
             report_aggregate = ReportAggregate.objects.create(
                 sample = self.sample,
@@ -1774,7 +2059,7 @@ class ReportSorter:
                 max_mapped_proportion = self.max_mapped_prop,
                 max_coverage = self.max_coverage,
                 max_windows_covered = self.max_windows_covered,
-                shared_proportion_threshold = report_layout_params.shared_proportion_threshold,
+                _shared_proportion_threshold = report_layout_params.shared_proportion_threshold,
                 tree_plot_path = self.tree_plot_path,
                 tree_plot_exists = self.tree_plot_exists,
                 overlap_heatmap_path = self.overlap_heatmap_path,
@@ -1806,21 +2091,44 @@ class ReportSorter:
                     overlap_heatmap_json = group.js_heatmap_data,
                 )
                 report_group.save()
+                taxa = []
+                reports = []
 
                 for report in group.group_list:
-                    report_group.reports.add(FinalReport.objects.get(pk=report.report_pk))
+                    actual_report = FinalReport.objects.get(pk=report.report_pk)
+                    report_group.reports.add(actual_report)
+                    reports.append(actual_report)
 
                     report_data = GroupReportData.objects.create(
-                        report = FinalReport.objects.get(pk=report.report_pk),
+                        report = actual_report,
                         report_group = report_group,
-                        private_reads = report.private_reads,
-                        data_exists = report.data_exists,
+                        private_reads = report.private_reads, # report wrapper
+                        data_exists = report.data_exists, # compouns report
                     )
                     report_data.save()
 
-                    for run in report.found_in:
+                    for run in report.found_in: # compound report
                         report_data.found_in.add(run)
                         report_aggregate.runs.add(run)
+
+                    taxa.append(actual_report.taxid)
+
+                if len(taxa) == 0:
+                    continue
+                
+                references = {
+                    taxid: ReferenceTaxid.objects.get(taxid=taxid) for taxid in taxa
+                }
+                species = {
+                    taxid: ref.tax_species for taxid, ref in references.items()
+                }
+                from collections import Counter
+                species_counter = Counter(species.values())
+                reports_sorted_cov = sorted(reports, key=lambda x: x.coverage, reverse=True)
+                
+                report_group.main_species = species[reports_sorted_cov[0].taxid]
+                report_group.main_species_percentage = species_counter[report_group.main_species] / len(species)
+                report_group.save()
 
 
     def sort_reports_save(self, force=False):
@@ -1836,6 +2144,7 @@ class ReportSorter:
             print(e)
             return self.return_no_analysis()
 
+
         overlap_analysis = self.read_overlap_analysis(force=True)
         self.overlap_manager.plot_pca_full(overlap_analysis)
         overlap_analysis.to_csv(self.analysis_df_path, sep="\t", index=False)
@@ -1846,7 +2155,6 @@ class ReportSorter:
 
         clades_to_keep = []
 
-        ## plot pairwise shared reads
         for group in overlap_groups:
             group_df = group[1]
 
@@ -2138,9 +2446,9 @@ class ReportSorter:
 
         for report_group in reports:
             new_list = []
-            for wapped_report in report_group.group_list:
-                report_compound = FinalReportCompound(wapped_report)
-                report_compound.update_private_reads(wapped_report.private_reads)
+            for wrapped_report in report_group.group_list:
+                report_compound = FinalReportCompound(wrapped_report)
+                report_compound.update_private_reads(wrapped_report.private_reads)
                 new_list.append(report_compound)
 
             report_group.group_list = new_list
@@ -2176,6 +2484,43 @@ class ReportSorter:
         return report_group
 
 
+def run_reference_overlap_analysis(sample: PIProject_Sample, parameter_set: ParameterSet):
+    final_reports = FinalReport.objects.filter(sample=sample).order_by(
+        "-coverage"
+    )
+    #
+    report_layout_params = TelevirParameters.get_report_layout_params(
+        project_pk=parameter_set.project.pk
+    )
+
+    if final_reports.exists() is False:
+        return
+
+
+    runs = RunMain.objects.filter(parameter_set=parameter_set).exclude(run_type=RunMain.RUN_TYPE_STORAGE)
+    
+    for run in runs:
+
+        final_reports_run = FinalReport.objects.filter(
+            sample=parameter_set.sample, run=run
+        ).order_by("-coverage")
+        #
+        report_sorter = ReportSorter(
+            parameter_set.sample, final_reports_run, report_layout_params, filter=True
+        )
+        report_sorter.sort_reports_save()
+        report_sorter.reports_aggregate_register(report_layout_params, run)
+
+
+    final_reports = final_report_best_cov_by_accid(final_reports)
+    report_sorter = ReportSorter(
+        parameter_set.sample, final_reports, report_layout_params, filter=True
+    )
+    report_sorter.build_tree()
+    report_sorter.sort_reports_save()
+    report_sorter.reports_aggregate_register(report_layout_params)
+
+
 def calculate_reports_overlaps(sample: PIProject_Sample, force=False):
     """
     calculate reports overlaps
@@ -2184,12 +2529,14 @@ def calculate_reports_overlaps(sample: PIProject_Sample, force=False):
     report_layout_params = TelevirParameters.get_report_layout_params(
         project_pk=sample.project.pk
     )
+
+    final_reports = final_report_best_cov_by_accid(final_reports)
+
     report_sorter = ReportSorter(
-        sample, final_reports, report_layout_params, force=force
+        sample, final_reports, report_layout_params, force=force, filter=True
     )
 
-    report_sorter.build_tree()
-    report_sorter.sort_reports_save()
+    report_sorter.reports_aggregate_register(report_layout_params)
 
 
 def final_report_best_cov_by_accid(reports: QuerySet) -> QuerySet:
@@ -2226,6 +2573,9 @@ class RawReferenceCompound:
         self.standard_score = 0
         self.ensemble_ranking = None
         self.global_ranking = None
+        self.reads_counts = 0
+        self.contig_counts = 0
+
 
         if raw_reference.run.sample is not None:
             self.find_across_sample(raw_reference.run.sample)
@@ -2341,7 +2691,7 @@ class RawReferenceCompound:
 
     @property
     def runs_str(self):
-        return ", ".join([str(r.parameter_set.leaf.index) for r in self.runs])
+        return ", ".join([str(r.parameter_set.leaf.id_str) for r in self.runs])
 
 
 class RawReferenceUtils:
@@ -2735,12 +3085,15 @@ class RawReferenceUtils:
         Update the standard score for a compound reference based on accid"""
 
         score = self.merged_table[self.merged_table.accid == compound_ref.accid]
+        score = score.fillna(0)
 
         if score.shape[0] > 0:
             # compound_ref.standard_score = score.iloc[0]["standard_score"]
             compound_ref.standard_score = max(score["standard_score"])
             compound_ref.global_ranking = min(score["global_ranking"])
             compound_ref.ensemble_ranking = min(score["ensemble_ranking"])
+            compound_ref.reads_counts = sum(score["read_counts"])
+            compound_ref.contig_counts = sum(score["contig_counts"])
 
     def update_scores_compound_references(
         self, compount_refs: List[RawReferenceCompound]
@@ -2862,6 +3215,8 @@ class RawReferenceUtils:
             compound_ref_model.standard_score = compound_ref.standard_score
             compound_ref_model.global_ranking = compound_ref.global_ranking
             compound_ref_model.ensemble_ranking = compound_ref.ensemble_ranking
+            compound_ref_model.read_counts = compound_ref.reads_counts
+            compound_ref_model.contig_counts = compound_ref.contig_counts
             compound_ref_model.manual_insert = compound_ref.manual_insert
             compound_ref_model.mapped_final_report = compound_ref.mapped_final_report
             compound_ref_model.mapped_raw_reference = compound_ref.mapped_raw_reference
@@ -2881,6 +3236,8 @@ class RawReferenceUtils:
                 standard_score=compound_ref.standard_score,
                 global_ranking=compound_ref.global_ranking,
                 ensemble_ranking=compound_ref.ensemble_ranking,
+                read_counts=compound_ref.reads_counts,
+                contig_counts = compound_ref.contig_counts,
                 manual_insert=compound_ref.manual_insert,
                 mapped_final_report=compound_ref.mapped_final_report,
                 mapped_raw_reference=compound_ref.mapped_raw_reference,

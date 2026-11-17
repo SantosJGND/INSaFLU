@@ -98,22 +98,6 @@ class Command(BaseCommand):
                     software.pipeline_step = vect_parameters[0].software.pipeline_step
                     software.save()
 
-    def replace_old_technology_names(self):
-        """replace old technology names"""
-        vect_change = [
-            [
-                ConstantsSettings.TECHNOLOGY_illumina_old,
-                ConstantsSettings.TECHNOLOGY_illumina,
-            ],
-            [
-                ConstantsSettings.TECHNOLOGY_generic_old,
-                ConstantsSettings.TECHNOLOGY_generic,
-            ],
-        ]
-        for vect_data in vect_change:
-            for technology in Technology.objects.filter(name=vect_data[0]):
-                technology.name = vect_data[1]
-                technology.save()
 
     def refresh_software_names(self):
         """replace old software names"""
@@ -123,10 +107,6 @@ class Command(BaseCommand):
 
     # A command must define handle()
     def handle(self, *args, **options):
-        #### replace old name technologies; Important, must be in first place
-        self.stdout.write("Replace old technology names...")
-        self.replace_old_technology_names()
-
         #### set default fields
         self.stdout.write("Set default pipelines..")
         self.load_default_settings()

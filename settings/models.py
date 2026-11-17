@@ -10,6 +10,53 @@ from pathogen_identification.models import Projects as TelevirProject
 # Create your models here.
 
 
+class TelevirProjectProfile(models.Model):
+    """
+    Each user can have a profile for each project. This profile is used to set the software parameters for each project.
+    """
+
+    PROFILE_COLOR_PALETTE = [
+        "#E99377",
+        "#FFB399",
+        "#FF33FF",
+        "#FFFF99",
+        "#00B3E6",
+        "#E6B333",
+        "#3366E6",
+        "#999966",
+        "#99FF99",
+    ]
+
+    user = models.ForeignKey(
+        User,
+        related_name="project_profile",
+        blank=True,
+        null=True,
+        on_delete=models.PROTECT,
+    )
+    project = models.ForeignKey(
+        TelevirProject,
+        related_name="project_profile",
+        blank=True,
+        null=True,
+        on_delete=models.PROTECT,
+    )
+    name = models.CharField(max_length=100, db_index=True, blank=True, null=True)
+    description = models.TextField(default="")
+    is_default = models.BooleanField(default=False)
+    public = models.BooleanField(default=False)
+    color = models.CharField(
+        max_length=7, default="#FF6633"
+    )  ## color to show in the settings HTML table
+
+    class Meta:
+        ordering = [
+            "name",
+        ]
+
+    def __str__(self):
+        return self.name
+
 class SoftwareDefaultTest(models.Model):
 
     user = models.ForeignKey(

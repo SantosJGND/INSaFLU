@@ -12,10 +12,10 @@ from django.contrib.auth.models import User
 from django.db import transaction
 
 from constants.constants import Constants, FileExtensions, TypePath
-from extend_user.models import Profile
 from managing_files.models import ProcessControler
 from pathogen_identification.constants_settings import \
     ConstantsSettings as PICS
+from pathogen_identification.models import PIProject_Sample, SoftwareTreeNode
 from utils.utils import Utils
 
 
@@ -71,10 +71,6 @@ class ProcessSched(object):
 
         # Check if error occurred
         if exist_status != 0:
-            print("Error: ", stderr.decode())
-            print("stdout: ", stdout.decode())
-            print("Error: ", exist_status)
-            print("cmd: ", cmd)
 
             ## remove file
             if os.path.exists(temp_file):
@@ -352,16 +348,10 @@ class ProcessSched(object):
         vect_slurm_to_search = [c for b in vect_slurm_ids for c in str(b).split(",")]
         if len(vect_slurm_to_search) == 0:
             while self.exists_taks_running():
-                print("=" * 50 + "\n  waiting for slurm\n" + str(datetime.now()))
                 time.sleep(5)  ## wais 5 seconds
         else:
             while len(vect_slurm_to_search) > 0:
-                print("=" * 50)
-                print(
-                    "   wait for these ids: {}".format(
-                        ";".join([str(_) for _ in vect_slurm_to_search])
-                    )
-                )
+
                 vect_remove = []
                 for slurm_id in vect_slurm_to_search:
                     if self.is_finished(slurm_id):
@@ -371,7 +361,6 @@ class ProcessSched(object):
                 for slurm_id in vect_remove:
                     vect_slurm_to_search.remove(slurm_id)
 
-                print("=" * 50)
                 if len(vect_slurm_to_search) > 0:
                     time.sleep(5)  ## wais 5 seconds
         ## set the one still running
@@ -658,7 +647,6 @@ class ProcessSched(object):
             )
             job_id = self.submit_job(path_file)
         except Exception as e:
-            print("Error: ", e)
             raise Exception("Fail to submit the job.")
 
         try:
@@ -674,7 +662,6 @@ class ProcessSched(object):
             sample.is_sample_in_the_queue = True
             sample.save()
         except:
-            print("Error: ", e)
             raise Exception("Fail to submit the job.")
         return job_id
 
@@ -1096,7 +1083,7 @@ class ProcessSched(object):
             raise Exception("Fail to submit the job.")
         return job_id
 
-    def set_submit_televir_sample(self, user, project_pk: int, sample_pk: int):
+    def set_submit_televir_sample(self, user, batch_pk: int, sample_pk: int, job_name, vect_job_name_wait):
         """
         submit the job to televir
         """
@@ -1105,10 +1092,10 @@ class ProcessSched(object):
         outdir_job = self.utils.get_temp_dir()
 
         vect_command = [
-            "python3 {} submit_televir_job_tree_sample --user_id {} --project_id {} --sample_id {} -o {}".format(
+            "python3 {} submit_televir_job_tree_sample --user_id {} --batch_id {} --sample_id {} -o {}".format(
                 os.path.join(settings.BASE_DIR, "manage.py"),
                 user_pk,
-                project_pk,
+                batch_pk,
                 sample_pk,
                 outdir_job,
             )
@@ -1117,16 +1104,16 @@ class ProcessSched(object):
         self.logger_production.info("Processing: " + ";".join(vect_command))
         self.logger_debug.info("Processing: " + ";".join(vect_command))
         queue_name = user.profile.queue_name_slurm
-        (job_name_wait, job_name) = user.profile.get_name_slurm_seq(
-            PICS.PROCESS_TYPE_DEPLOYMENT, Constants.PROCESS_LINK
-        )
+
         path_file = self.set_script_run_slurm(
             outdir_job,
             queue_name,
             vect_command,
             job_name,
             True,
-            [job_name_wait],
+            vect_job_name_wait,
+            cpus= Constants.get_process_cpu(Constants.PROCESS_televir),
+            memory= Constants.get_process_mem_string(Constants.PROCESS_televir)
         )
         try:
             job_id = self.submit_job(path_file)
@@ -1134,13 +1121,15 @@ class ProcessSched(object):
                 self.set_process_controlers(
                     user,
                     process_controler.get_name_televir_project_sample(
-                        project_pk, sample_pk
+                        batch_pk, sample_pk
                     ),
                     job_id,
                 )
         except:
             raise Exception("Fail to submit the job.")
         return job_id
+
+
 
     def set_submit_televir_sample_metagenomics(
         self,
@@ -1175,7 +1164,7 @@ class ProcessSched(object):
         self.logger_debug.info("Processing: " + ";".join(vect_command))
         queue_name = user.profile.queue_name_slurm
         (job_name_wait, job_name) = user.profile.get_name_slurm_seq(
-            Constants.PROCESS_televir, Constants.PROCESS_LINK
+            Constants.PROCESS_televir, Constants.PROCESS_REGULAR
         )
         path_file = self.set_script_run_slurm(
             outdir_job,
@@ -1192,7 +1181,7 @@ class ProcessSched(object):
             if job_id != None:
                 self.set_process_controlers(
                     user,
-                    process_controler.get_name_televir_project_sample_metagenomics_run(
+                    process_controler.get_name_televir_sample_mapping(
                         sample_pk,
                         leaf_pk,
                     ),
@@ -1219,7 +1208,7 @@ class ProcessSched(object):
         outdir_job = self.utils.get_temp_dir()
 
         vect_command = [
-            "python3 {} submit_televir_sample_panel_run --user_id {} --sample_id {} --leaf_id {} {} {} {}-o {}".format(
+            "python3 {} submit_televir_sample_panel_run --user_id {} --sample_id {} --leaf_id {} {} {} {} -o {}".format(
                 os.path.join(settings.BASE_DIR, "manage.py"),
                 user_pk,
                 sample_pk,
@@ -1235,7 +1224,7 @@ class ProcessSched(object):
         self.logger_debug.info("Processing: " + ";".join(vect_command))
         queue_name = user.profile.queue_name_slurm
         (job_name_wait, job_name) = user.profile.get_name_slurm_seq(
-            Constants.PROCESS_televir, Constants.PROCESS_LINK
+            Constants.PROCESS_televir, Constants.PROCESS_mapping
         )
         path_file = self.set_script_run_slurm(
             outdir_job,
@@ -1316,49 +1305,6 @@ class ProcessSched(object):
             raise Exception("Fail to submit the job.")
         return job_id
 
-    def set_submit_televir_job(self, user, project_pk):
-        """
-        submit the job to televir
-        """
-        user_pk = user.pk
-        process_controler = ProcessControler()
-        outdir_job = self.utils.get_temp_dir()
-
-        vect_command = [
-            "python3 {} submit_televir_job --user_id {} --project_id {} -o {}".format(
-                os.path.join(settings.BASE_DIR, "manage.py"),
-                user_pk,
-                project_pk,
-                outdir_job,
-            )
-        ]
-
-        self.logger_production.info("Processing: " + ";".join(vect_command))
-        self.logger_debug.info("Processing: " + ";".join(vect_command))
-        queue_name = user.profile.queue_name_slurm
-        (job_name_wait, job_name) = user.profile.get_name_slurm_seq(
-            Constants.PROCESS_televir, Constants.PROCESS_LINK
-        )
-        path_file = self.set_script_run_slurm(
-            outdir_job,
-            queue_name,
-            vect_command,
-            job_name,
-            True,
-            [job_name_wait],
-            cpus= Constants.get_process_cpu(Constants.PROCESS_televir),
-            memory= Constants.get_process_mem_string(Constants.PROCESS_televir),
-        )
-        try:
-            job_id = self.submit_job(path_file)
-            if job_id != None:
-                self.set_process_controlers(
-                    user, process_controler.get_name_televir_project(project_pk), job_id
-                )
-        except:
-            raise Exception("Fail to submit the job.")
-        return job_id
-
     def set_submit_televir_sort_pisample_reports(self, user, pisample_pk):
         """
         submit the job to televir
@@ -1401,8 +1347,6 @@ class ProcessSched(object):
                     job_id,
                 )
         except:
-            import traceback
-            traceback.print_exc()
             raise Exception("Fail to submit the job.")
         return job_id
 
@@ -1629,16 +1573,12 @@ class ProcessSched(object):
         """
 
         bash_command = (
-            # SLURM: scancel process_id
             "scancel {}".format(
                 process_id
             )
         )
 
         exit_status = os.system(bash_command)
-
-        if exit_status != 0:
-            print("Fail to kill the process")
 
         return exit_status
 
@@ -1649,14 +1589,11 @@ class ProcessSched(object):
         """
         Kill the process in process controler.
         """
+        sample = PIProject_Sample.objects.get(pk=sample_pk)
+        batch_runs = sample.batch_registrations
         process_controler = ProcessControler()
-
         names_processes = [
-            process_controler.get_name_televir_run(project_pk, sample_pk, leaf_pk),
-            process_controler.get_name_televir_project_sample(
-                project_pk=project_pk, sample_pk=sample_pk
-            ),
-            process_controler.get_name_televir_project_sample_metagenomics_run(
+            process_controler.get_name_televir_sample_mapping(
                 sample_pk,
                 leaf_pk,
             ),
@@ -1664,6 +1601,12 @@ class ProcessSched(object):
                 sample_pk=sample_pk, leaf_pk=leaf_pk
             ),
         ]
+
+        for register in batch_runs:
+            names_processes.append(
+                process_controler.get_name_televir_project_sample(register.batch.pk, sample_pk)
+            )
+        
 
         processes = ProcessControler.objects.filter(
             owner__id=user_pk,
@@ -1676,19 +1619,18 @@ class ProcessSched(object):
 
     @transaction.atomic
     def kill_televir_process_controler_samples(
-        self, user_pk: int, project_pk: int, sample_pk: int, leaf_pk: int
+        self, user_pk: int, sample_pk: int, leaf_pk: int
     ):
         """
         Kill the process in process controler.
         """
+
         process_controler = ProcessControler()
+        sample = PIProject_Sample.objects.get(pk=sample_pk)
+        batch_runs = sample.batch_registrations
 
         names_processes = [
-            process_controler.get_name_televir_run(project_pk, sample_pk, leaf_pk),
-            process_controler.get_name_televir_project_sample(
-                project_pk=project_pk, sample_pk=sample_pk
-            ),
-            process_controler.get_name_televir_project_sample_metagenomics_run(
+            process_controler.get_name_televir_sample_mapping(
                 sample_pk,
                 leaf_pk,
             ),
@@ -1696,6 +1638,10 @@ class ProcessSched(object):
                 sample_pk=sample_pk, leaf_pk=leaf_pk
             ),
         ]
+        for register in batch_runs:
+            names_processes.append(
+                process_controler.get_name_televir_project_sample(register.batch.pk, sample_pk)
+            )
 
         processes = ProcessControler.objects.filter(
             owner__id=user_pk,
@@ -1750,7 +1696,7 @@ class ProcessSched(object):
 
     def kill_processes(self, processes: List[ProcessControler]):
         """ """
-
+        
         for process in processes:
             if process.name_job_id:
                 self.kill_process(process.name_job_id)

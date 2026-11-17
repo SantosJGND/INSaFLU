@@ -5,6 +5,7 @@ from django.urls import reverse, reverse_lazy
 from django.utils.functional import cached_property
 from django.views.generic import ListView, TemplateView, UpdateView
 from view_breadcrumbs import BaseBreadcrumbMixin
+
 from constants.constants import Constants
 from constants.meta_key_and_values import MetaKeyAndValue
 from constants.software_names import SoftwareNames
@@ -84,13 +85,13 @@ class PIMetagenSampleView(BaseBreadcrumbMixin, LoginRequiredMixin, ListView):
             ),
             (
                 self.kwargs["sample_name"],
-                reverse("PIproject_sample", kwargs={"pk": self.kwargs["sample_id"]}),
+                reverse("PIproject_samples", kwargs={"pk": self.kwargs["sample_id"]}),
             ),
             (
                 "References Management",
                 reverse(
                     "sample_references_management",
-                    kwargs={"pk": self.kwargs["sample_id"]},
+                    kwargs={"pk1": self.kwargs["sample_id"]},
                 ),
             ),
         ]
@@ -184,13 +185,9 @@ class PIMetagenSampleView(BaseBreadcrumbMixin, LoginRequiredMixin, ListView):
             context["settings_pathid_project"] = True  ## True for project softwares
             context["project_name"] = televir_project.name
             context["project_id"] = televir_project.pk
+            context["technology"] = televir_project.technology
         else:
             context["settings_pathogenid"] = True
-
-        if sample is not None:
-            context["settings_pathid_sample"] = True
-            context["sample_name"] = sample.name
-            context["sample_id"] = sample.pk
 
         context["show_info_main_page"] = (
             ShowInfoMainPage()
@@ -398,7 +395,6 @@ class PISettingsView(BaseBreadcrumbMixin, LoginRequiredMixin, ListView):
             self.request.user
         )  ## the user can have defaults yet
         ### project parameters
-        print(televir_project)
         if televir_project:
             # if not self.check_project_params_exist(televir_project):
             software_primed = self.check_project_params_exist(televir_project)
@@ -418,10 +414,10 @@ class PISettingsView(BaseBreadcrumbMixin, LoginRequiredMixin, ListView):
                     screening=False,
                     mapping_only=True,
                 )
-                _ = software_utils.get_sample_pathnodes(
-                    screening=True,
-                    mapping_only=False,
-                )
+                #_ = software_utils.get_sample_pathnodes(
+                #    screening=True,
+                #    mapping_only=False,
+                #)
                 _ = software_utils.get_sample_pathnodes(
                     screening=False,
                     mapping_only=False,
@@ -553,7 +549,6 @@ class PISettingsGroupsView(PISettingsView):
             self.update_software_params_global_project(televir_project)
 
             technologies = [televir_project.technology]
-            print(software_primed)
             if software_primed == False:
                 from pathogen_identification.utilities.utilities_pipeline import \
                     SoftwareTreeUtils
@@ -564,10 +559,10 @@ class PISettingsGroupsView(PISettingsView):
                     screening=False,
                     mapping_only=True,
                 )
-                _ = software_utils.get_sample_pathnodes(
-                    screening=True,
-                    mapping_only=False,
-                )
+                #_ = software_utils.get_sample_pathnodes(
+                #    screening=True,
+                #    mapping_only=False,
+                #)
                 _ = software_utils.get_sample_pathnodes(
                     screening=False,
                     mapping_only=False,
@@ -870,6 +865,7 @@ class SettingsView(BaseBreadcrumbMixin, LoginRequiredMixin, ListView):
 
 
 def bowtie_post_process(form, software: Software):
+    print(software)
     if software.name != SoftwareNames.SOFTWARE_BOWTIE2_REMAP_name:
         return form
 
@@ -1003,6 +999,7 @@ class UpdateParametersView(BaseBreadcrumbMixin, LoginRequiredMixin, UpdateView):
                             parameter.parameter = "None"
                         else:
                             parameter.parameter = value_from_form
+                        print("value_from_form", value_from_form)
                         parameter.save()
 
             if b_change:
@@ -1171,7 +1168,10 @@ class UpdateParametersProjView(BaseBreadcrumbMixin, LoginRequiredMixin, UpdateVi
         return [
             ("Project Index", reverse("project-index")),
             ("Projects", reverse("projects")),
-            ("Project settings", reverse("project-settings", self.kwargs["pk_proj"])),
+            (
+                "Project settings",
+                reverse("project-settings", kwargs={"pk": self.kwargs["pk_proj"]}),
+            ),
             ("Update parameters", reverse("software-update", kwargs={"pk": self.kwargs["pk"]})),
         ]
 
@@ -1281,7 +1281,7 @@ class UpdateParametersDatasetView(BaseBreadcrumbMixin, LoginRequiredMixin, Updat
             ("Projects", reverse("projects")),
             (
                 "Datasets",
-                reverse("dataset-settings", self.kwargs["pk_dataset"]),
+                reverse("dataset-settings", kwargs={"pk": self.kwargs["pk_dataset"]}),
             ),
         ]
 
@@ -1428,21 +1428,25 @@ class UpdateParametersProjSampleView(
 
     @cached_property
     def crumbs(self):
-        return (
-            [
-                ("Project Index", reverse("project-index")),
-                ("Projects", reverse("projects")),
-                (
-                    "Show project results",
-                    reverse(
-                        "show-sample-project-results",
-                        kwargs={"pk": self.kwargs["pk_proj_sample"]},
-                    ),
+        return [
+            ("Project Index", reverse("project-index")),
+            ("Projects", reverse("projects")),
+            (
+                "Show project results",
+                reverse(
+                    "show-sample-project-results",
+                    kwargs={"pk": self.kwargs["pk_proj_sample"]},
                 ),
-                ("Project sample settings", reverse("sample-project-settings")),
-                ("Update parameters", reverse("software-update", kwargs={"pk": self.kwargs["pk"]})),
-            ],
-        )
+            ),
+            (
+                "Project sample settings",
+                reverse(
+                    "sample-project-settings",
+                    kwargs={"pk": self.kwargs["pk_proj_sample"]},
+                ),
+            ),
+            ("Update parameters", reverse("software-update", kwargs={"pk": self.kwargs["pk"]})),
+        ]
 
     ## Other solution to get the reference
     ## https://pypi.python.org/pypi?%3aaction=display&name=django-contrib-requestprovider&version=1.0.1
@@ -1595,21 +1599,19 @@ class UpdateParametersSampleView(BaseBreadcrumbMixin, LoginRequiredMixin, Update
 
     @cached_property
     def crumbs(self):
-        return (
-            [
-                ("Project Index", reverse("project-index")),
-                ("Projects", reverse("projects")),
-                (
-                    "Show project results",
-                    reverse(
-                        "show-sample-project-results",
-                        kwargs={"pk": self.kwargs["pk_sample"]},
-                    ),
+        return [
+            ("Project Index", reverse("project-index")),
+            ("Projects", reverse("projects")),
+            (
+                "Show project results",
+                reverse(
+                    "show-sample-project-results",
+                    kwargs={"pk": self.kwargs["pk_sample"]},
                 ),
-                ("Project sample settings", reverse("sample-project-settings", kwargs={"pk": self.kwargs["pk_sample"]})),
-                ("Update parameters", reverse("software-update", kwargs={"pk" : self.kwargs["pk"]})),
-            ],
-        )
+            ),
+            ("Project sample settings", reverse("sample-project-settings", kwargs={"pk": self.kwargs["pk_sample"]})),
+            ("Update parameters", reverse("software-update", kwargs={"pk" : self.kwargs["pk"]})),
+        ]
 
     ## Other solution to get the reference
     ## https://pypi.python.org/pypi?%3aaction=display&name=django-contrib-requestprovider&version=1.0.1

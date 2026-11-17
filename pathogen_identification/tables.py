@@ -105,50 +105,8 @@ class ProjectTable(tables.Table):
         """
         return record.technology
 
-    def render_processes(self, record):
-        return (
-            f"{self.render_running_processes(record)} / "
-            f"{self.render_queued_processes(record)} / "
-            f"{self.render_finished_processes(record)}"
-        )
-
-    def render_running_processes(self, record):
-        """
-        return number of running processes in this project"""
-
-        parameter_sets = ParameterSet.objects.filter(
-            project=record, sample__sample__is_deleted=False, status=ParameterSet.STATUS_RUNNING
-        ).count()
-        return parameter_sets
-
-    def render_queued_processes(self, record):
-        """
-        return number of queued processes in this project"""
-
-        queued = ParameterSet.objects.filter(
-            project=record, sample__sample__is_deleted=False, status=ParameterSet.STATUS_QUEUED
-        ).count()
-
-        mapping_runs = RunMain.objects.filter(
-            project=record,
-            run_type=RunMain.RUN_TYPE_MAP_REQUEST,
-            status=RunMain.STATUS_PREP,
-            parameter_set__status=ParameterSet.STATUS_PROXIED,
-        ).count()
-
-        queued += mapping_runs
-
-        return queued
-
-    def render_finished_processes(self, record):
-        """
-        return number of finished processes in this project"""
-
-        parameter_sets = ParameterSet.objects.filter(
-            project=record, sample__sample__is_deleted=False, status=ParameterSet.STATUS_FINISHED
-        ).count()
-    
-        return parameter_sets
+    def render_processes(self, record: Projects):
+        return mark_safe(record.render_processes)
 
     def render_settings(self, record):
         color = ""
@@ -330,7 +288,7 @@ class ProjectTableMetagenomics(ProjectTable):
             project_dir, CS.EXPLIFY_MERGE_SUFFIX + f".{record.pk}.tsv"
         )
         merge_explify_file_provide = os.path.join(
-            "/media/",
+            settings.MEDIA_URL,
             project_dir_structure,
             CS.EXPLIFY_MERGE_SUFFIX + f".{record.pk}.tsv",
         )
@@ -520,7 +478,7 @@ class SampleTableOne(tables.Table):
 
         return mark_safe(
                     f"""
-            {deployment_management} |  {processes}
+            {deployment_management} | <p style="display:inline;" title='Running / Queued / Finished'> {processes} </p>
         """
         )
     def render_deploy(self, record: PIProject_Sample):
@@ -699,7 +657,8 @@ class SampleTableOne(tables.Table):
     def render_ref_management(self, record: PIProject_Sample):
         nreferences = (
             RawReferenceCompoundModel.objects.filter(sample=record)
-            .distinct("accid")
+            .values("accid")
+            .distinct()
             .count()
         )
         references_management_button = (
@@ -724,42 +683,28 @@ class SampleTableOne(tables.Table):
             run_type=RunMain.RUN_TYPE_PIPELINE,
         ).count()
 
-    def render_running_processes(self, record: PIProject_Sample):
-        """
-        return number of running processes in this project"""
 
-        running = ParameterSet.objects.filter(
-            sample=record, project=record.project, status=ParameterSet.STATUS_RUNNING
-        ).count()
-
-        return running
 
     def render_queued_processes(self, record: PIProject_Sample):
         """
         return number of running processes in this project"""
 
-        queued = ParameterSet.objects.filter(
-            sample=record, project=record.project, status=ParameterSet.STATUS_QUEUED
-        ).count()
+        #queued = ParameterSet.objects.filter(
+        #    sample=record, project=record.project, status=ParameterSet.STATUS_QUEUED
+        #).count()
 
         mapping_runs = RunMain.objects.filter(
             sample=record,
-            run_type__in=[
-                RunMain.RUN_TYPE_MAP_REQUEST,
-                RunMain.RUN_TYPE_COMBINED_MAPPING,
-                RunMain.RUN_TYPE_MAP_REQUEST,
-                RunMain.RUN_TYPE_PANEL_MAPPING,
-            ],
-            parameter_set__status__in=[
-                ParameterSet.STATUS_PROXIED,
-                ParameterSet.STATUS_QUEUED,
-                ParameterSet.STATUS_NOT_STARTED,
+            run_type__in=RunMain.RUN_TYPE_MAPPINGS,
+            status__in=[
+                RunMain.STATUS_DEFAULT,
+                RunMain.STATUS_PREP,
+                RunMain.STATUS_QUEUED,
             ],
         ).count()
 
-        queued += mapping_runs
 
-        return queued
+        return mapping_runs
 
     def render_mapping_runs(self, record):
         """
@@ -769,12 +714,7 @@ class SampleTableOne(tables.Table):
         return RunMain.objects.filter(
             sample__name=record.name,
             project=record.project,
-            run_type__in=[
-                RunMain.RUN_TYPE_MAP_REQUEST,
-                RunMain.RUN_TYPE_COMBINED_MAPPING,
-                RunMain.RUN_TYPE_MAP_REQUEST,
-                RunMain.RUN_TYPE_PANEL_MAPPING,
-            ],
+            run_type__in=RunMain.RUN_TYPE_MAPPINGS,
             status__in=[
                 RunMain.STATUS_DEFAULT,
                 RunMain.STATUS_RUNNING,
@@ -782,11 +722,15 @@ class SampleTableOne(tables.Table):
             ],
         ).count()
 
-    def render_processes(self, record):
-        return (
-            f"{self.render_running_processes(record)} / "
-            f"{self.render_queued_processes(record)}"
-        )
+
+    def render_processes(self, record: PIProject_Sample):
+        
+        """
+        Render the running / queued / finished processes for a sample.
+        Prefer precomputed attributes (set by the view) to avoid per-row DB queries.
+        Fall back to DB counting if attributes are not present.
+        """
+        return mark_safe(record.render_processes)
 
     def render_finished_processes(self, record):
         """
@@ -900,9 +844,7 @@ class TelevirReferencesTable(tables.Table):
     def render_source(self, record: ReferenceSourceFileMap):
         
         records_same_accid = ReferenceSourceFileMap.objects.filter(
-            reference_source_file__owner__in=[
-                self.user_id
-            ]
+            Q(reference_source_file__owner= self.user_id)
             | Q(reference_source_file__owner__isnull=True)
         ).filter(
             Q(reference_source__accid=record.reference_source.accid)
@@ -1431,6 +1373,10 @@ class RawReferenceTable_Basic(tables.Table):
             )
             return mark_safe("Unmapped" + button)
 
+        elif record.status == RawReference.STATUS_MAPPING_REQUESTED:
+            button = "Redeployed"
+            return button
+
 
 class RawReferenceTable(RawReferenceTable_Basic):
     classification_source = tables.Column(
@@ -1639,7 +1585,10 @@ class RunMappingTable(tables.Table):
             if record.panel is not None:
                 prefix += record.panel.name + " - "
 
-        return f"{prefix}{record.parameter_set.leaf.index}"
+        elif record.run_type == RunMain.RUN_TYPE_CONTROL_MAPPING:
+            prefix = "Control - "
+
+        return f"{prefix}{record.parameter_set.leaf.id_str}"
 
     def render_enrichment(self, record: RunMainWrapper):
         method_name = record.get_pipeline_software(
@@ -1823,19 +1772,8 @@ class RunMainTable(tables.Table):
         return mark_safe(record.runtime)
 
     def render_name(self, record: RunMainWrapper):
-        prefix = ""
 
-        if record.run_type == RunMain.RUN_TYPE_MAP_REQUEST:
-            prefix = "Request - "
-        elif record.run_type == RunMain.RUN_TYPE_COMBINED_MAPPING:
-            prefix = "Combined - "
-
-        elif record.run_type == RunMain.RUN_TYPE_PANEL_MAPPING:
-            prefix = "Panel - "
-            if record.panel is not None:
-                prefix += record.panel.name + " - "
-
-        return f"{prefix}{record.parameter_set.leaf.index}"
+        return f"{record.parameter_set.leaf.id_str}"
 
     def render_enrichment(self, record: RunMainWrapper):
         method_name = record.get_pipeline_software(

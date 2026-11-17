@@ -30,6 +30,7 @@ from pathogen_identification.models import (FinalReport, ParameterSet,
 from pathogen_identification.modules.metadata_handler import RunMetadataHandler
 from pathogen_identification.modules.object_classes import (
     Operation_Temp_Files, Read_class, RunCMD, Temp_File)
+from pathogen_identification.televir_pipeline_makeup import Pipeline_Makeup
 from pathogen_identification.utilities.overlap_manager import (
     MappingResultsParser, ReadOverlapManager, clade_private_proportions,
     pairwise_shared_count, pairwise_shared_reads,
@@ -50,7 +51,6 @@ from settings.default_software import DefaultSoftware
 from settings.models import Parameter, Sample, Software
 from utils.software import Software as SoftwareUtils
 from utils.utils import Utils
-from pathogen_identification.televir_pipeline_makeup import Pipeline_Makeup
 
 
 class AttrDict(dict):
@@ -549,7 +549,7 @@ def generate_compressed_tree(user, project, sample, makeup):
     }
 
     assert set(list(matched_paths.keys())) == set(
-        [x.index for x in runs_to_deploy[sample]]
+        [x.tree_index for x in runs_to_deploy[sample]]
     )
 
     module_tree = utils_manager.module_tree(pipeline_tree, list(matched_paths.values()))
@@ -990,7 +990,7 @@ class MetadataManagementTests(TestCase):
         )
 
         metadata_tool.match_and_select_targets(
-            reads_report, contig_report, max_remap=3, taxid_limit=3
+            reads_report, contig_report, max_remap=3, taxid_limit=3, project_pk = self.project_ont.pk
         )
 
         self.assertTrue(metadata_tool.merged_targets.shape[0] == 2)
@@ -1004,7 +1004,7 @@ class MetadataManagementTests(TestCase):
             pd.DataFrame(columns=["taxid", "counts"]),
             contig_report,
             max_remap=3,
-            taxid_limit=3,
+            taxid_limit=3, project_pk = self.project_ont.pk
         )
 
         self.assertTrue(metadata_tool.merged_targets.iloc[0]["source"] == "contigs")
@@ -1016,6 +1016,7 @@ class MetadataManagementTests(TestCase):
             contig_report,
             max_remap=3,
             taxid_limit=3,
+            project_pk = self.project_ont.pk
         )
 
         self.assertTrue(metadata_tool.merged_targets.iloc[0]["source"] == "contigs")
@@ -1030,6 +1031,7 @@ class MetadataManagementTests(TestCase):
             self.contig_report,
             max_remap=3,
             taxid_limit=3,
+            project_pk = self.project_ont.pk
         )
 
         self.assertTrue(len(metadata_tool.remap_targets) == 1)
@@ -1150,19 +1152,19 @@ class MetadataManagementTests(TestCase):
 
         reset_project_makeup(self.project_illu)
 
-        mapping_run = RunMain.objects.get(pk=run_engine.run_pk)
+        mapping_run = RunMain.objects.get(pk=run_engine._run_pk)
 
         final_report = FinalReport.objects.filter(
             sample=self.project_sample_illu, run=mapping_run
         ).order_by("-coverage")
 
         report_layout_params = TelevirParameters.get_report_layout_params(
-            run_pk=run_engine.run_pk
+            run_pk=run_engine._run_pk
         )
         reference_utils = RawReferenceUtils(project=self.project_illu)
 
         report_sorter = ReportSorter(
-            self.project_sample_illu, final_report, report_layout_params
+            self.project_sample_illu, final_report, report_layout_params, filter=True
         )
 
         sorted_reports = report_sorter.get_reports()
@@ -1636,7 +1638,7 @@ class Televir_Project_Test(TestCase):
             }
 
             assert set(list(matched_paths.keys())) == set(
-                [x.index for x in runs_to_deploy[self.ont_project_sample]]
+                [x.tree_index for x in runs_to_deploy[self.ont_project_sample]]
             )
 
             module_tree = utils_manager.module_tree(

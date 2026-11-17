@@ -19,6 +19,24 @@
     height: 100%; /* Fill the height of the container */
 }
 
+.killWorkflowButton {
+    background-color: #ae3834; /* Bootstrap danger color */
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.kill-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-left: auto;
+    height: 100%;
+    margin-right: 10px;
+}
+
 .workflow-container-main {
     border: 1px solid #e6e6e6; /* Even lighter gray */
     padding: 10px;

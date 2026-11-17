@@ -1,10 +1,11 @@
 import logging
 import os
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 
 from pathogen_identification.models import (PIProject_Sample, RawReference,
+                                            ReferenceTaxid, Taxon,
                                             RawReferenceCompoundModel,
                                             ReferenceSource,
                                             ReferenceSourceFileMap, RunMain)
@@ -13,7 +14,9 @@ from pathogen_identification.utilities.entrez_wrapper import EntrezWrapper
 from pathogen_identification.utilities.utilities_general import (merge_classes,
                                                                  simplify_name)
 from pathogen_identification.utilities.utilities_views import RawReferenceUtils
-
+from constants.constants_taxonomy import TaxonConstants
+from django.contrib.auth.models import User
+from constants.constants import Televir_Metadata_Constants
 
 def determine_taxid_in_file(taxid, df: pd.DataFrame):
     """
@@ -30,11 +33,12 @@ class RunMetadataHandler:
 
     def __init__(
         self,
-        username,
+        owner: User,
         config,
         sift_query: str = "phage",
         prefix: str = "",
         rundir: str = "",
+        logdir: str = "",
     ):
         """
         Initialize metadata handler.
@@ -44,25 +48,30 @@ class RunMetadataHandler:
             sift_query: string to filter sift report.
 
         """
+        self.owner  = owner
         self.prefix = prefix
         self.rundir = rundir
         self.config = config
         self.metadata_paths = config["metadata"]
         self.logger = logging.getLogger(f"{__name__}_{self.prefix}")
         self.logger.setLevel(logging.INFO)
-        self.logger.addHandler(logging.StreamHandler())
 
         if self.logger.hasHandlers():
             self.logger.handlers.clear()
+
+        if logdir:
+            self.logger.addHandler(
+                logging.FileHandler(os.path.join(logdir, f"{self.prefix}_metadata_handler.log"))
+            )
+        else: 
+            self.logger.addHandler(logging.StreamHandler())
+
         self.logger.propagate = False
+        metadata_handler = Televir_Metadata_Constants()
 
         self.entrez_conn = EntrezWrapper(
-            username,
-            bindir=os.path.join(
-                self.config["bin"]["ROOT"],
-                self.config["bin"]["software"]["entrez_direct"],
-                "bin",
-            ),
+            owner,
+            bindir=metadata_handler.get_software_bin_directory("entrez_direct"),
             outdir=self.rundir,
             outfile="entrez_output.tsv",
         )
@@ -99,6 +108,10 @@ class RunMetadataHandler:
             [[0, 0, 0]], columns=["input", "output", "removed"]
         )
         self.get_metadata()
+    
+    @property
+    def username(self):
+        return self.owner.username
 
     def reset(self):
         self.remap_targets: List[Remap_Target] = []
@@ -173,22 +186,21 @@ class RunMetadataHandler:
                 )
 
                 accids_replete += 1
+    
+    #def filter(compound_refs: List[RawReferenceCompoundModel], project_pk: int) -> List[RawReferenceCompoundModel]:
+
 
     def merge_sample_references_ensemble(
         self,
-        sample_registered: PIProject_Sample,
-        max_taxids: Optional[int] = None,
-        max_remap: int = 15,
+        sample_registered: PIProject_Sample, 
     ):
 
         reference_utils = RawReferenceUtils(sample_registered)
-        ### ############################################################# ###
+        ##################################################################
+        ##################################################################
         compound_refs: List[RawReferenceCompoundModel] = (
             reference_utils.query_sample_compound_references_regressive()
         )
-
-        if max_taxids is not None:
-            compound_refs = compound_refs[:max_taxids]
 
         remap_plan = []
         # remap_targets = []
@@ -254,14 +266,20 @@ class RunMetadataHandler:
         self,
         report_1: pd.DataFrame,
         report_2: pd.DataFrame,
-        max_remap: int = 15,
+        max_remap: int = 2,
         taxid_limit: int = 12,
+        project_pk: Optional[int] = None
     ):
 
         self.process_reports(
             report_1,
             report_2,
         )
+
+        if self.rclass.empty is False:
+            self.rclass = self.rclass.sort_values(by="counts", ascending=False)
+            taxid_cutoff = self._predict_cutoff(self.rclass, project_pk)
+            taxid_limit = min(taxid_cutoff, taxid_limit)
 
         if self.merged_targets.empty:
             self.merge_reports_clean(
@@ -278,6 +296,9 @@ class RunMetadataHandler:
 
     @staticmethod
     def prettify_reports(df: pd.DataFrame) -> pd.DataFrame:
+
+        df["description"] = df["description"].fillna("NA")
+
         if "acc_x" in df.columns:
             if "accid" in df.columns:
                 df = df.drop(columns=["acc_x"])
@@ -367,12 +388,11 @@ class RunMetadataHandler:
         from pathogen_identification.utilities.reference_utils import \
             AssemblyStore
 
-        assembly_store = AssemblyStore(ConstantsSettings.local_assembly_store)
+        assembly_store = AssemblyStore(ConstantsSettings.local_assembly_store, user = self.entrez_conn.user)
         assemblies = assembly_store.match_taxid_to_assembly(df[df["has_refs"] == False])
         assembly_store.register_assemblies(assemblies, cache = True)
         df = self.check_taxids_not_in_db(df)
-        df = df[df["has_refs"] == True]
-        df.drop(columns=["has_refs"], inplace=True)
+
 
         return df
 
@@ -408,7 +428,7 @@ class RunMetadataHandler:
 
     def results_collect_metadata(
         self, df: pd.DataFrame, sift: bool = True
-    ) -> pd.DataFrame:
+    ) -> Tuple[pd.DataFrame, dict]:
         """
         Process results.
         merge df with metadata to create taxid columns.
@@ -418,7 +438,7 @@ class RunMetadataHandler:
 
         df = self.clean_report(df)
 
-        df = self.merge_report_to_metadata_taxid(df)
+        df, missing_accids = self.merge_report_to_metadata_taxid(df)
 
         df = self.map_hit_report(df)
 
@@ -426,43 +446,24 @@ class RunMetadataHandler:
 
         df = self.retrieve_taxids_ncbi(df)
 
+        df_absent = df[df["has_refs"] == False]
+        df = df[df["has_refs"] == True]
+        df.drop(columns=["has_refs"], inplace=True)
+        missing_accids['taxid'] = df_absent.taxid.unique().tolist()
 
         self.accid_register(df)
-
         df = self.db_get_taxid_descriptions(df)
-        # df = self.entrez_get_taxid_descriptions(df)
-        # df = self.entrez_conn.entrez_get_taxid_descriptions(df)
-        # df = self.merge_report_to_metadata_description(df)
-
         df = df.reset_index(drop=True)
 
-        def get_acc(df: pd.DataFrame):
-            if "acc_x" in df.columns:
-                df["accid"] = df["acc_x"]
-                df.drop(columns=["acc_x"])
-            elif "acc_y" in df.columns:
-                df["accid"] = df["acc_y"]
-                df.drop(columns=["acc_y"])
-            elif "acc" in df.columns:
-                df["accid"] = df["acc"]
-                df.drop(columns=["acc"])
-            else:
-                df["accid"] = df["taxid"].apply(self.get_taxid_representative_accid)
-
-            return df
-
-        if df.shape[0] > 0:
-            df = get_acc(df)
-            df["description"] = df["description"].fillna("NA")
-
-        if sift:
-            sifted_df = self.sift_report_filter(df, query=self.sift_query)
-            self.sift_report = self.sift_summary(df, sifted_df)
-            df = sifted_df
-
         df = self.prettify_reports(df)
+        if "accid" not in df.columns:
+            df["accid"] = df["taxid"].apply(self.get_taxid_representative_accid)
 
-        return df
+        #if sift:
+        #    sifted_df = self.sift_report_filter(df, query=self.sift_query)
+        #    self.sift_report = self.sift_summary(df, sifted_df)
+        #    df = sifted_df
+        return df, missing_accids
 
     def get_metadata(self):
         """
@@ -512,8 +513,10 @@ class RunMetadataHandler:
 
         self.logger.info("Finished retrieving metadata")
 
-    def get_protacc_taxid(self, df: pd.DataFrame) -> pd.DataFrame:
-        print("prot_accesions")
+    def get_protacc_taxid(self, df: pd.DataFrame) -> Tuple[pd.DataFrame, list]:
+        """
+        add a local database query to get taxid from prot_acc, if not found, use entrez to get taxid."""
+
         query_list = df.prot_acc.unique().tolist()
         self.entrez_conn.bin_query = self.entrez_conn.bin_query_factory.get_query(
             "fetch_protein_accession_taxon"
@@ -524,34 +527,43 @@ class RunMetadataHandler:
             "fetch_taxid_description"
         )
         # merge with df
+        unmatched = df[~df.prot_acc.isin(output.acc.unique())]
+
         df = df.merge(output, left_on="prot_acc", right_on="acc", how="left")
         df = df.drop(columns=["prot_acc"])
-        return df
+        return df, unmatched.prot_acc.unique().tolist()
 
-    def merge_report_to_metadata_taxid(self, df: pd.DataFrame) -> pd.DataFrame:
+    def merge_report_to_metadata_taxid(self, df: pd.DataFrame) -> Tuple[pd.DataFrame, dict]:
         """
-
         Args:
             df: classifier output, possessing at least columns: acc, protid, prot_acc or taxid.
 
         Returns:
             df: classifier output, possessing original columns plus: description.
-
         """
+        missing_accids = {
+            "acc": [],
+            "protid": [],
+            "prot_acc": [],
+            }
 
         if df.shape[0] == 0:
-            return pd.DataFrame(columns=["taxid", "description", "file"])
+            return pd.DataFrame(columns=["taxid", "description", "file"]), missing_accids
+        
 
         if "taxid" not in df.columns:
             if "prot_acc" in df.columns and "acc" not in df.columns:
                 counts_df = df.groupby(["prot_acc"]).size().reset_index(name="counts")
-                return self.get_protacc_taxid(counts_df)
+                counts_df, missing_protacc= self.get_protacc_taxid(counts_df)
+                missing_accids["prot_acc"] = missing_protacc
+                return counts_df, missing_accids
 
             elif "protid" in df.columns and "acc" not in df.columns:
                 counts_df = df.groupby(["protid"]).size().reset_index(name="counts")
                 df = self.merge_check_column_types(
                     counts_df, self.protein_to_accession, "protid"
                 )
+                missing_accids["protid"]  = df[df.acc.isna()].protid.unique().tolist()
 
             if "acc" in df.columns and "taxid" not in df.columns:
                 if "counts" in df.columns:
@@ -563,19 +575,20 @@ class RunMetadataHandler:
             if "taxid" not in df.columns:
                 if "acc" in df.columns:
                     df = self.db_get_taxid_from_accid(df)
-
                 else:
                     raise ValueError(
                         "No taxid, accid or protid in the dataframe, unable to retrieve description."
                     )
 
         df = df[(df.taxid != "0") & (df.taxid != 0) & (df.taxid != "")]
+        if "acc" in df.columns:
+            missing_accids["acc"] = df[df.taxid.isna()].acc.unique().tolist()
+            df = df.dropna(subset=["taxid"])
 
         df["taxid"] = df["taxid"].astype(str)
-        # remove decimals from taxid
         df["taxid"] = df["taxid"].apply(lambda x: x.split(".")[0])
 
-        return df
+        return df, missing_accids
 
     def db_get_taxid_descriptions(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -614,12 +627,9 @@ class RunMetadataHandler:
                     .taxid.taxid
                 )
             except:
-                return ""
+                return None
 
         df["taxid"] = df["acc"].apply(get_taxid)
-
-        df["taxid"] = df["taxid"].fillna("NA")
-        df["taxid"] = df["taxid"].astype(str)
 
         return df
 
@@ -764,10 +774,39 @@ class RunMetadataHandler:
         report_1: pd.DataFrame,
         report_2: pd.DataFrame,
     ):
-        self.rclass = self.results_collect_metadata(report_1)
-        self.aclass = self.results_collect_metadata(report_2)
+        rclass, rmissing_ref = self.results_collect_metadata(report_1)
+        aclass, amissing_ref=  self.results_collect_metadata(report_2)
 
-    def get_taxid_representative_accid(self, taxid: int) -> str:
+        self.rclass= rclass
+        self.aclass= aclass
+        
+        missing_refs = []
+        for reference_type, missing in rmissing_ref.items():
+            for ref in missing: 
+                if ref and ref != "-":
+                    missing_refs.append((reference_type, ref, "reads"))
+        for reference_type, missing in amissing_ref.items():
+            for ref in missing: 
+                if ref and ref != "-":
+                    missing_refs.append((reference_type, ref, "assembly"))  
+
+        missing_refs_df = pd.DataFrame(missing_refs, columns=["reference_type", "missing_reference", "source"])
+        self.missing_refs_df = missing_refs_df
+        
+    @staticmethod
+    def get_accid_taxid(accid: str) -> Optional[int]:
+        """
+        Return taxid for a given accid.
+        """
+
+
+        sources = ReferenceSource.objects.filter(accid=accid).first()
+        if sources is None:
+            return None
+        else:
+            return sources.taxid.taxid
+
+    def get_taxid_representative_accid(self, taxid: int) -> Optional[str]:
         """
         Return representative accession for a given taxid.
         """
@@ -779,6 +818,74 @@ class RunMetadataHandler:
             return "-"
         else:
             return sources[0].accid
+    
+    @staticmethod
+    def _get_taxid_taxonomy(taxid: str, level= TaxonConstants.RANK_FAMILY) -> Optional[str]:
+        """
+        Return the taxonomy for a given taxid at a given level.
+        """
+        try:
+            reference_taxid = ReferenceTaxid.objects.get(taxid=taxid)
+            
+            if level == TaxonConstants.RANK_ORDER:
+                return reference_taxid.order
+            elif level == TaxonConstants.RANK_FAMILY:
+                return reference_taxid.family
+            elif level == TaxonConstants.RANK_GENUS:
+                return reference_taxid.genus
+            elif level == TaxonConstants.RANK_SPECIES:
+                return reference_taxid.species
+            else:
+                raise ValueError(f"Invalid level: {level}")
+        except ReferenceTaxid.DoesNotExist:
+            return None
+    
+
+    def _predict_cutoff(self, merged_table: pd.DataFrame, project_pk: Optional[int]) -> int:
+        """
+        Predict cutoff for a given merged table."""
+
+        if any(x not in merged_table.columns for x in ["taxid", "counts"]):
+            raise ValueError("Merged table must contain 'taxid' and 'counts' columns.")
+
+        from pathogen_identification.utilities.ml_api_client import MLAPIClient
+        from pathogen_identification.utilities.televir_parameters import TelevirParameters
+        from constants.software_names import SoftwareNames
+
+        model_type = TelevirParameters.get_recall_model(project_pk=project_pk)
+        remap_params = TelevirParameters.get_remap_software(project_pk=project_pk)
+
+        if model_type == SoftwareNames.SOFTWARE_REMAP_PARAMS_recall_default_model:
+            
+            return remap_params.max_taxids
+
+        rows = [
+            {
+                "taxid": int(row.taxid), 
+                "family": RunMetadataHandler._get_taxid_taxonomy(row.taxid, level=TaxonConstants.RANK_FAMILY),
+                "order": RunMetadataHandler._get_taxid_taxonomy(row.taxid, level=TaxonConstants.RANK_ORDER),
+                "total_uniq_reads": float(row.counts),
+                "best_match_is_best": True
+            }
+            for _, row in merged_table.iterrows()
+        ]
+        rows = sorted(rows, key=lambda x: x["total_uniq_reads"], reverse=True)
+
+        ml_api_client = MLAPIClient()
+
+        try:
+            cutoff_dict = ml_api_client.predict_recall_cutoff(rows, model= model_type)
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            print(f"Error predicting cutoff: {e}. Using default cutoff of 15.")
+            cutoff_dict = {"predicted_cutoff": remap_params.max_taxids}
+        
+        self.logger.info(f"Predicted cutoff: {cutoff_dict}")
+
+        cut_off_perc = len(merged_table) * cutoff_dict["predicted_cutoff"]
+        return int(cut_off_perc)
+
 
     def merge_reports_clean(
         self,
@@ -806,7 +913,7 @@ class RunMetadataHandler:
             raw_targets = raw_targets.merge(taxid_descriptions, on="taxid", how="left")
 
         raw_targets["status"] = (
-            False  # raw_targets["taxid"].isin(targets["taxid"].to_list())
+            False  #
         )
 
         self.raw_targets = raw_targets

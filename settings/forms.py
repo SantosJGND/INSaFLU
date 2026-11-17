@@ -52,6 +52,7 @@ class SoftwareForm(forms.ModelForm):
         pk_televir_project = kwargs.get("pk_televir_project")
         project = None
         televir_project = None
+        print("kwargs", kwargs)
 
         ###
         self.televir_utiltity = Utility_Pipeline_Manager()
@@ -144,6 +145,59 @@ class SoftwareForm(forms.ModelForm):
                     )
                 dt_fields[parameter.get_unique_id()].help_text = escape(help_text)
 
+            elif parameter.is_radio_button():
+                if parameter.name == SoftwareNames.SOFTWARE_REMAP_PARAMS_recall_model_type:
+                    list_data = [
+                        [SoftwareNames.SOFTWARE_REMAP_PARAMS_recall_default_model, SoftwareNames.SOFTWARE_REMAP_PARAMS_recall_default_model]
+                    ]
+
+                    try:
+                        from pathogen_identification.utilities.ml_api_client import \
+                            MLAPIClient
+
+                        client = MLAPIClient()
+                        models_recall= client.models_recall_cutoff()
+                        list_data = list_data + [
+                            [
+                                c.get('model_type', ''), f"{c.get('description', '')} {c.get('date_trained', '')}"
+                            ] for c in models_recall.values()
+                            ]
+                    except Exception as e:
+                        print(f"Error: {e}")
+                        pass          
+
+                elif parameter.name == SoftwareNames.SOFTWARE_REMAP_PARAMS_clustering_model_type:
+                    from pathogen_identification.utilities.ml_api_client import \
+                        MLAPIClient
+                    list_data = [
+                        [SoftwareNames.SOFTWARE_REMAP_PARAMS_clustering_default_model, SoftwareNames.SOFTWARE_REMAP_PARAMS_clustering_default_model]
+                    ]
+
+                    try:
+
+                        client = MLAPIClient()
+                        models_clustering= client.models_composition()
+                        list_data = list_data + [
+                            [
+                                c.get('model_type', ''), f"{c.get('description', '')} {c.get('date_trained', '')}"
+                            ] for c in models_clustering.values()
+                            ]
+                        
+                    except Exception as e:
+                        pass
+
+                else:
+                    list_data = [[parameter.parameter, parameter.parameter]]
+                
+                dt_fields[parameter.get_unique_id()] = forms.ChoiceField(
+                    choices=list_data, widget=forms.RadioSelect
+                )
+                dt_fields[parameter.get_unique_id()].help_text = escape(parameter.description)
+                dt_fields[parameter.get_unique_id()].label = parameter.name
+                dt_fields[parameter.get_unique_id()].initial = parameter.parameter
+                dt_fields[parameter.get_unique_id()].widget.attrs.update({"class": "checkbox-inline"})
+                dt_fields[parameter.get_unique_id()].widget.attrs.update({"style": "margin-right: 10px;"})
+
             elif parameter.is_multiple_choice():  # Update this condition if needed
                 ## already selected
 
@@ -151,7 +205,7 @@ class SoftwareForm(forms.ModelForm):
 
                 if (
                     parameter.software.name_extended
-                    == SoftwareNames.SOFTWARE_BWA_FILTER_name_extended
+                    in [SoftwareNames.SOFTWARE_BWA_FILTER_name_extended, SoftwareNames.SOFTWARE_BWA_VALIDATION_name_extended]
                 ):
 
                     list_data = [
@@ -161,11 +215,28 @@ class SoftwareForm(forms.ModelForm):
                         )
                     ]
 
+                    selected = [
+                        data_ for data_ in selected
+                    ]
+                    selected_index = [
+                        i
+                        for i, data_ in enumerate(list_data)
+                        if os.path.basename(data_[0]) in selected
+                    ]
+
+
                 elif parameter.software.name == SoftwareNames.SOFTWARE_METAPHLAN_NAME:
                     list_data = [
                         [data_, data_]
                         for data_ in SoftwareNames.SOFTWARE_METAPHLAN_DB_options
                     ]
+                
+                elif parameter.software.name == SoftwareNames.SOFTWARE_televir_report_layout_name:
+                    list_data = [
+                        [data_, data_]
+                        for data_ in SoftwareNames.SOFTWARE_televir_report_description_filters_default.split(";")
+                    ]
+                    
                 else:
                     raise Exception(
                         "Error: Software {} not implemented.".format(
@@ -175,7 +246,7 @@ class SoftwareForm(forms.ModelForm):
 
                 ## setup multiple choice widget
                 dt_fields[parameter.get_unique_id()] = forms.MultipleChoiceField(
-                    choices=list_data, widget=forms.CheckboxSelectMultiple
+                    choices=list_data, widget=forms.CheckboxSelectMultiple,
                 )
                 dt_fields[parameter.get_unique_id()].help_text = escape(
                     parameter.description
@@ -445,15 +516,19 @@ class SoftwareForm(forms.ModelForm):
                     )
                 dt_fields[parameter.get_unique_id()].help_text = escape(help_text)
 
-            dt_fields[parameter.get_unique_id()].label = parameter.name
+                dt_fields[parameter.get_unique_id()].label = parameter.name
+        
             if not parameter.can_change and len(parameter.parameter) == 0:
                 dt_fields[parameter.get_unique_id()].initial = parameter.name
-            else:
+            if dt_fields[parameter.get_unique_id()].initial == None:
                 dt_fields[parameter.get_unique_id()].initial = parameter.parameter
             vect_divs.append(Div(parameter.get_unique_id(), css_class="col-sm-4"))
 
+            print("################################3")
+            print(dt_fields[parameter.get_unique_id()].initial)
         ### set all fields
         self.fields.update(dt_fields)
+
 
         vect_rows_divs = []
         for _ in range(0, len(vect_divs), 3):

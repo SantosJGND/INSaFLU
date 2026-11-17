@@ -1098,6 +1098,7 @@ def validate_project_reference_name(request):
     """
     test if exist this project name
     """
+    data = {"is_taken": False}
     if request.headers.get("x-requested-with") == "XMLHttpRequest":
         project_name = request.GET.get("project_name")
         request.session[Constants.PROJECT_NAME_SESSION] = project_name
@@ -1111,7 +1112,7 @@ def validate_project_reference_name(request):
         }
         if data["is_taken"]:
             data["error_message"] = _("Exists a project with this name.")
-        return JsonResponse(data)
+    return JsonResponse(data)
 
 
 @csrf_protect
@@ -1119,6 +1120,7 @@ def validate_reference_name(request):
     """
     test if exist this reference name
     """
+    data = {"is_taken": False}
     if request.headers.get("x-requested-with") == "XMLHttpRequest":
         reference_name = request.GET.get("reference_name")
 
@@ -1131,7 +1133,7 @@ def validate_reference_name(request):
         }
         if data["is_taken"]:
             data["error_message"] = _("Exists a reference with this name.")
-        return JsonResponse(data)
+    return JsonResponse(data)
 
 
 @csrf_protect

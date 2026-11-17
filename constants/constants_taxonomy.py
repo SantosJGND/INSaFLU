@@ -49,20 +49,34 @@ class TaxonConstants:
 
     NO_RANK = "no rank"
 
-    RANK_SYNONYMS = {
-        "domain": RANK_DOMAIN,
-        "superkingdom": RANK_DOMAIN,
 
+    RANK_SYNONYMS_ALLOWED = {
+        "superkingdom": RANK_DOMAIN,
         "kingdom": RANK_KINGDOM,
 
         "phylum": RANK_PHYLUM,
         "division": RANK_PHYLUM,
+        "superphylum": RANK_PHYLUM,
+        "subphylum": RANK_PHYLUM,
+
+        "class": RANK_CLASS,
+        "subclass": RANK_CLASS,
+        "superclass": RANK_CLASS,
+
+        "order": RANK_ORDER,
+        "superorder": RANK_ORDER,
+        "suborder": RANK_ORDER,
+
+        "family": RANK_FAMILY,
+        "superfamily": RANK_FAMILY,
+        "subfamily": RANK_FAMILY,
+
+        "genus": RANK_GENUS,
+        "subgenus": RANK_GENUS,
 
         "species": RANK_SPECIES,
-
-        "no rank": NO_RANK,
-        "clade": NO_RANK,
     }
+
 
     # Abbreviation -> canonical name
     ABBREV_MAP = {
@@ -133,8 +147,8 @@ class TaxonConstants:
 
         value = value.strip().lower()
 
-        if value in cls.RANK_SYNONYMS:
-            return cls.RANK_SYNONYMS[value]
+        if value in cls.RANK_SYNONYMS_ALLOWED:
+            return cls.RANK_SYNONYMS_ALLOWED[value]
 
         if value in [k.lower() for k in cls.ABBREV_MAP]:
             for abbr, rank in cls.ABBREV_MAP.items():

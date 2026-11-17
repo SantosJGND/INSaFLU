@@ -7,15 +7,12 @@ import time
 from dataclasses import dataclass
 from functools import wraps
 from typing import Generator, List, Optional, Tuple
+from django.contrib.auth.models import User
 
 import numpy as np
 import pandas as pd
 from Bio import Entrez
 from decouple import config
-
-Entrez.email = config("NCBI_EMAIL")
-if Entrez.email is None:
-    raise ValueError("NCBI_EMAIL environment variable not set. Please set it to your email address.")
 
 NCBI_TAXONOMY_LEVELS = ['superkingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species']
 NCBI_TAXONOMY_LEVELS_EXTENDED = ['acellular root', 'realm', 'domain', 'kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species']
@@ -98,9 +95,6 @@ class ReferenceData(Passport):
 
     def __str__(self):
         return f"TaxID: {self.taxid}, Accession: {self.accession}, Description: {self.description}, Nucleotide ID: {self.nucleotide_id}, Assembly ID: {self.assembly_id}"
-
-
-
 
 
 @retry_with_backoff(max_retries=3, initial_delay=1)
@@ -214,14 +208,15 @@ def get_representative_assembly(taxid, include_term=None, exclude_term=None) -> 
 @retry_with_backoff(max_retries=3, initial_delay=1)
 def retrieve_reference_sequence(nucleotide_id, output_path, gzipped=True) -> bool:
     extention = ".fasta"
+    tmp_path = None
 
     try:
+
         handle = Entrez.efetch(db="nucleotide", id=nucleotide_id, rettype="fasta", retmode="text")
         fasta_data = handle.read()
         handle.close()
         from utils.utils import Utils
         utils = Utils()        
-        
 
         if gzipped:
             extention += '.gz'
@@ -234,15 +229,15 @@ def retrieve_reference_sequence(nucleotide_id, output_path, gzipped=True) -> boo
             with open(tmp_path, 'w') as f:
                 f.write(fasta_data)
 
-        if os.path.exists(tmp_path):
-            raise FileExistsError(f"Output file {tmp_path} already exists.")
-
         utils.move_file(tmp_path, output_path)
 
         return True
     except Exception as e:
         print(f"An error occurred while downloading sequence: {e}")
         return False
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            os.remove(tmp_path)
 
 @retry_with_backoff(max_retries=3, initial_delay=1)
 def retrieve_assembly_sequence(assembly_id, output_path) -> bool:
@@ -275,10 +270,18 @@ def retrieve_assembly_sequence(assembly_id, output_path) -> bool:
     except Exception as e:
         print(f"An error occurred while downloading assembly: {e}")
         return False
-
+    
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            os.remove(tmp_path)
 
 class NCBITools:
-    def __init__(self):
+    def __init__(self, user = User):
+
+        Entrez.email = user.email
+        Entrez.max_tries = 1
+        Entrez.sleep_between_tries = 1
+
         self.logger = logging.getLogger('NCBITools')
         self.logger.setLevel(logging.INFO)
         ch = logging.StreamHandler()

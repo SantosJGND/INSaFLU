@@ -1,0 +1,154 @@
+/* Profiles grid / cute cards (same look-and-feel as settings_televir.html) */
+.profiles-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    align-items: start;
+    width: 100%;
+    padding: 12px;
+    box-sizing: border-box;
+}
+
+.profile-card {
+    border-radius: 12px;
+    min-height: 84px;
+    padding: 14px;
+    box-shadow: 0 6px 18px rgba(33,33,33,0.08);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border: 1px solid rgba(0,0,0,0.06);
+    overflow: hidden;
+    transition: transform .14s ease, box-shadow .14s ease, filter .14s ease;
+    background-image: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0));
+    backdrop-filter: blur(2px);
+    cursor: default;
+}
+
+.profile-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 28px rgba(33,33,33,0.12);
+    filter: saturate(1.03);
+}
+.profile-card:active { transform: translateY(-1px) scale(.998); }
+
+.profile-card .profile-avatar {
+    width: 46px;
+    height: 46px;
+    min-width: 46px;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    color: rgba(255,255,255,0.95);
+    font-size: 1rem;
+    background: rgba(255,255,255,0.06);
+    box-shadow: inset 0 -2px 6px rgba(0,0,0,0.06);
+}
+
+.profile-card .profile-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.profile-card .profile-info h6 {
+    margin: 0;
+    font-weight: 800;
+    font-size: 1.02rem;
+    line-height: 1.08;
+    color: inherit;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.profile-card .profile-info h6::before {
+    content: "🏷️";
+    margin-right: 8px;
+    display: inline-block;
+    transform: translateY(-1px);
+    font-size: 0.98rem;
+    opacity: 0.95;
+}
+
+.profile-card .profile-info p {
+    margin: 0;
+    font-size: 0.85rem;
+    opacity: 0.95;
+    color: inherit;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.profile-card .delete-profile {
+    border: none;
+    background: rgba(255,85,85,0.15);
+    color: #c00;
+    min-width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    font-weight: 700;
+    transition: background .12s ease, transform .12s ease;
+    padding: 0;
+}
+.profile-card .delete-profile:hover {
+    background: rgba(255,85,85,0.95);
+    color: #fff;
+    transform: scale(1.06);
+}
+
+.profile-card .copy-profile,
+.profile-card .add_tag {
+    border: none;
+    background: #2f6bed;
+    color: #fff;
+    padding: 6px 10px;
+    height: auto;
+    min-height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background .12s ease, transform .12s ease, box-shadow .12s ease;
+    white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(47,107,237,0.12);
+}
+.profile-card .copy-profile:hover,
+.profile-card .add_tag:hover { background: #1f4bd6; transform: translateY(-2px); }
+
+@media (max-width: 900px) {
+    .profiles-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+}
+@media (max-width: 600px) {
+    .profiles-grid { grid-template-columns: 1fr; gap: 10px; }
+    .profile-card { padding: 12px; }
+    .profile-card .profile-info h6 { font-size: 1rem; white-space: normal; }
+    .profile-card .profile-info p { white-space: normal; }
+    .profile-card .copy-profile,
+    .profile-card .add_tag { padding: 6px 8px; font-size: 0.95rem; }
+}
+.table tbody tr {
+    margin-bottom: 10px; /* Add space between rows */
+    border-radius: 10px; /* Make rows rounder */
+    border: 1px solid #ddd; /* Add a border to rows */
+    overflow: hidden; /* Ensure content stays within rounded corners */
+}
+
+.table tbody tr td {
+    padding: 15px; /* Add padding inside cells */
+}
+
+.table tbody tr:hover {
+    background-color: #f9f9f9; /* Highlight row on hover */
+}

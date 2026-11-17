@@ -14,14 +14,13 @@ from django.db import DatabaseError, transaction
 from constants.meta_key_and_values import MetaKeyAndValue
 from constants.software_names import SoftwareNames
 from managing_files.models import Project, ProjectSample
-from pathogen_identification.constants_settings import (
-    ConstantsSettings as PI_ConstantsSettings,
-)
-from pathogen_identification.utilities.utilities_pipeline import (
-    Utility_Pipeline_Manager,
-)
+from pathogen_identification.constants_settings import \
+    ConstantsSettings as PI_ConstantsSettings
+from pathogen_identification.utilities.utilities_pipeline import \
+    Utility_Pipeline_Manager
 from settings.constants_settings import ConstantsSettings
-from settings.models import Parameter, PipelineStep, Project, Software, Technology
+from settings.models import (Parameter, PipelineStep, Project, Software,
+                             Technology)
 from utils.lock_atomic_transaction import LockedAtomicTransaction
 
 
@@ -146,12 +145,11 @@ class DefaultParameters(object):
                 continue
 
     @transaction.atomic
-    def persist_parameters(self, vect_parameters: List[Parameter], type_of_use: int):
+    def persist_parameters(self, vect_parameters: List[Parameter], software: Optional[Software] = None):
         """
         persist a specific software by default
         param: type_of_use Can by Software.TYPE_OF_USE_project; Software.TYPE_OF_USE_project_sample
         """
-        software = None
         dt_out_sequential = {}
 
         for parameter in vect_parameters:
@@ -344,10 +342,7 @@ class DefaultParameters(object):
         """
         software_list = Software.objects.filter(
             owner=user,
-            technology__name__in=[
-                ConstantsSettings.TECHNOLOGY_illumina,
-                ConstantsSettings.TECHNOLOGY_illumina_old,
-            ],
+            technology__name = ConstantsSettings.TECHNOLOGY_illumina,
             parameter__project=project,
             parameter__project_sample=project_sample,
             pipeline_step__name=ConstantsSettings.PIPELINE_NAME_variant_detection,
@@ -357,10 +352,7 @@ class DefaultParameters(object):
         if len(software_list) == 0:
             software_list = Software.objects.filter(
                 owner=user,
-                technology__name__in=[
-                    ConstantsSettings.TECHNOLOGY_illumina,
-                    ConstantsSettings.TECHNOLOGY_illumina_old,
-                ],
+                technology__name = ConstantsSettings.TECHNOLOGY_illumina,
                 parameter__project=project,
                 pipeline_step__name=ConstantsSettings.PIPELINE_NAME_variant_detection,
                 is_to_run=True,
@@ -369,10 +361,7 @@ class DefaultParameters(object):
         if len(software_list) == 0:
             software_list = Software.objects.filter(
                 owner=user,
-                technology__name__in=[
-                    ConstantsSettings.TECHNOLOGY_illumina,
-                    ConstantsSettings.TECHNOLOGY_illumina_old,
-                ],
+                technology__name = ConstantsSettings.TECHNOLOGY_illumina,
                 parameter__project_sample=project_sample,
                 pipeline_step__name=ConstantsSettings.PIPELINE_NAME_variant_detection,
                 is_to_run=True,
@@ -469,18 +458,6 @@ class DefaultParameters(object):
                 televir_project=televir_project,
             )
 
-        elif self.check_software_with_duplicates(software_name):
-            software = self.get_software_global(
-                user,
-                software_name,
-                technology_name,
-                type_of_use,
-                televir_project=televir_project,
-                is_to_run=is_to_run,
-                name_extended=software_name_extended,
-                project=project,
-                project_sample=project_sample,
-            )
         else:
             software = self.get_software_global(
                 user,
@@ -491,6 +468,7 @@ class DefaultParameters(object):
                 is_to_run=is_to_run,
                 name_extended=software_name_extended,
                 project=project,
+                project_sample=project_sample,
             )
 
         return software
@@ -1284,18 +1262,12 @@ class DefaultParameters(object):
                 software.technology.name,
             )
 
-        elif software.name == SoftwareNames.SOFTWARE_BAMUTIL_name:
-            return self.get_bamutil_defaults(
-                software.owner,
-                Software.TYPE_OF_USE_televir_global,
-                software.technology.name,
-            )
-
         elif software.name == SoftwareNames.SOFTWARE_DUSTMASKER_name:
             return self.get_dustmasker_defaults(
                 software.owner,
                 Software.TYPE_OF_USE_televir_global,
                 software.technology.name,
+                pipeline_step=software.pipeline_step.name
             )
 
         elif software.name == SoftwareNames.SOFTWARE_MSAMTOOLS_name:
@@ -1303,6 +1275,7 @@ class DefaultParameters(object):
                 software.owner,
                 Software.TYPE_OF_USE_televir_global,
                 software.technology.name,
+                pipeline_step=software.pipeline_step.name
             )
         
         elif software.name == SoftwareNames.SOFTWARE_GATK4_name:
@@ -1317,6 +1290,7 @@ class DefaultParameters(object):
                 software.owner,
                 Software.TYPE_OF_USE_televir_global,
                 software.technology.name,
+                pipeline_step=software.pipeline_step.name,
             )
 
         elif software.name == SoftwareNames.SOFTWARE_BWA_FILTER_name:
@@ -1341,6 +1315,7 @@ class DefaultParameters(object):
                 software.owner,
                 Software.TYPE_OF_USE_televir_global,
                 ConstantsSettings.TECHNOLOGY_illumina,
+                pipeline_step=software.pipeline_step.name
             )
 
         elif software.name == SoftwareNames.SOFTWARE_METAPHLAN_NAME:
@@ -1362,6 +1337,7 @@ class DefaultParameters(object):
                 software.owner,
                 Software.TYPE_OF_USE_televir_global,
                 ConstantsSettings.TECHNOLOGY_illumina,
+                pipeline_step=software.pipeline_step.name
             )
         elif software.name == SoftwareNames.SOFTWARE_KRAKENUNIQ_name:
             return self.get_krakenuniq_default(
@@ -1426,6 +1402,7 @@ class DefaultParameters(object):
                 software.owner,
                 Software.TYPE_OF_USE_televir_global,
                 ConstantsSettings.TECHNOLOGY_illumina,
+                pipeline_step=software.pipeline_step.name
             )
 
         elif software.name == SoftwareNames.SOFTWARE_BOWTIE2_REMAP_name:
@@ -1433,6 +1410,7 @@ class DefaultParameters(object):
                 software.owner,
                 Software.TYPE_OF_USE_televir_global,
                 ConstantsSettings.TECHNOLOGY_illumina,
+                pipeline_step=software.pipeline_step.name
             )
 
         elif software.name == SoftwareNames.SOFTWARE_VOYAGER_name:
@@ -1459,8 +1437,9 @@ class DefaultParameters(object):
                 software.owner,
                 Software.TYPE_OF_USE_televir_global,
                 ConstantsSettings.TECHNOLOGY_illumina,
-                pipeline_step=ConstantsSettings.PIPELINE_NAME_metagenomics_screening,
+                pipeline_step=ConstantsSettings.PIPELINE_NAME_remapping,
             )
+        
         elif software.name == SoftwareNames.SOFTWARE_MINIMAP2_MAP_ASSEMBLY_name:
             return self.get_minimap2_map_assembly_default(
                 software.owner,
@@ -1521,10 +1500,6 @@ class DefaultParameters(object):
 
         else:
             return None
-
-    def check_software_with_duplicates(self, software_name):
-        """return true if software is in duplocate_list"""
-        return software_name in SoftwareNames.duplicate_softwares
 
     def check_software_is_polyvalent(self, software_name):
         """return True if the software is polyvalent"""
@@ -2360,6 +2335,8 @@ class DefaultParameters(object):
             max number of taxids to map against.
             max number of acccids to map for each taxid.
             minimum coverage?
+        
+        DEPRECATED: this software is not used anymore in the pipeline, but it is kept here for historical reasons.
         """
         software = Software()
         software.name = SoftwareNames.SOFTWARE_BAMUTIL_name
@@ -2719,18 +2696,60 @@ class DefaultParameters(object):
         )
         vect_parameters.append(parameter)
 
+        parameter = Parameter()
+        parameter.name = SoftwareNames.SOFTWARE_REMAP_PARAMS_clustering_model_type
+        parameter.parameter = SoftwareNames.SOFTWARE_REMAP_PARAMS_clustering_default_model
+        parameter.type_data = Parameter.PARAMETER_radio_button
+        parameter.software = software
+        parameter.sample = sample
+        parameter.union_char = " "
+        parameter.can_change = True
+        parameter.is_to_run = True
+        parameter.sequence_out = 4
+        parameter.range_available = ""
+        parameter.range_max = ""
+        parameter.range_min = ""
+        parameter.description = "Composition Clustering Model to Use - tree construction and hit clustering."
+        vect_parameters.append(parameter)
+
+
+        parameter = Parameter()
+        parameter.name = SoftwareNames.SOFTWARE_REMAP_PARAMS_recall_model_type
+        parameter.parameter = SoftwareNames.SOFTWARE_REMAP_PARAMS_recall_default_model
+        parameter.type_data = Parameter.PARAMETER_radio_button
+        parameter.software = software
+        parameter.sample = sample
+        parameter.union_char = " "
+        parameter.can_change = True
+        parameter.is_to_run = True
+        parameter.sequence_out = 5
+        parameter.range_available = ""
+        parameter.range_max = ""
+        parameter.range_min = ""
+        parameter.description = "Recall Filter Model to Use."
+        vect_parameters.append(parameter)
+
         return vect_parameters
 
     def get_prinseq_defaults(
-        self, user, type_of_use, technology_name, sample=None, is_to_run=False
+        self, user, type_of_use, technology_name, sample=None, is_to_run=False, pipeline_step=None
     ):
         """
         -lc_entropy <float>  Filter on a minimum entropy score. Range: [0.0:1.0].
         -lc_dust <float>     Filter on a maximum DUST score. Range: [0.0:1.0].
         """
+
+        if pipeline_step == None:
+            pipeline_step = ConstantsSettings.PIPELINE_NAME_extra_qc
+
         software = Software()
         software.name = SoftwareNames.SOFTWARE_PRINSEQ_name
-        software.name_extended = SoftwareNames.SOFTWARE_PRINSEQ_name_extended
+
+        if pipeline_step == ConstantsSettings.PIPELINE_NAME_extra_qc:
+            software.name_extended = SoftwareNames.SOFTWARE_PRINSEQ_name_extended
+        elif pipeline_step == ConstantsSettings.PIPELINE_NAME_validation_qc:
+            software.name_extended = SoftwareNames.SOFTWARE_PRINSEQ_VALIDATION_name_extended
+        
         software.version = SoftwareNames.SOFTWARE_PRINSEQ_VERSION
         software.type_of_use = type_of_use
         software.type_of_software = Software.TYPE_INSAFLU_PARAMETER
@@ -2750,7 +2769,7 @@ class DefaultParameters(object):
 
         ###  which part of pipeline is going to run
         software.pipeline_step = self._get_pipeline(
-            ConstantsSettings.PIPELINE_NAME_extra_qc
+            pipeline_step
         )
         software.owner = user
 
@@ -2798,8 +2817,14 @@ class DefaultParameters(object):
             pipeline_step = ConstantsSettings.PIPELINE_NAME_extra_qc
 
         software = Software()
+
         software.name = SoftwareNames.SOFTWARE_BWA_FILTER_name
-        software.name_extended = SoftwareNames.SOFTWARE_BWA_FILTER_name_extended
+        
+        if pipeline_step == ConstantsSettings.PIPELINE_NAME_extra_qc:
+            software.name_extended = SoftwareNames.SOFTWARE_BWA_FILTER_name_extended
+        elif pipeline_step == ConstantsSettings.PIPELINE_NAME_validation_qc:
+            software.name_extended = SoftwareNames.SOFTWARE_BWA_VALIDATION_name_extended
+
         software.type_of_use = type_of_use
         software.type_of_software = Software.TYPE_SOFTWARE
         software.version = SoftwareNames.SOFTWARE_BWA_VERSION
@@ -2907,11 +2932,9 @@ class DefaultParameters(object):
         parameter.is_to_run = True
         parameter.sequence_out = 1
         parameter.description = "flag calculations to use for mapping. defaults for viruses, bacteria, probes."
-
         vect_parameters.append(parameter)
 
         parameter = Parameter()
-
         parameter.name = SoftwareNames.SOFTWARE_televir_report_layout_threshold_name
         parameter.parameter = "0.5"
         parameter.type_data = Parameter.PARAMETER_float
@@ -2928,6 +2951,23 @@ class DefaultParameters(object):
             "read sharing threshold used to group references into groups"
         )
         vect_parameters.append(parameter)
+
+        parameter = Parameter()
+        parameter.name = SoftwareNames.SOFTWARE_televir_report_description_filters
+        parameter.parameter = SoftwareNames.SOFTWARE_televir_report_description_filters_default
+        parameter.type_data = Parameter.PARAMETER_multiple_choice
+        parameter.software = software
+        parameter.sample = sample
+        parameter.union_char = " "
+        parameter.can_change = True
+        parameter.is_to_run = True
+        parameter.sequence_out = 3
+        parameter.description = (
+            "Explicit description filters to use for mapping. defaults for viruses, bacteria, probes."
+        )
+        vect_parameters.append(parameter)
+        
+
 
         return vect_parameters
 
@@ -3679,7 +3719,7 @@ class DefaultParameters(object):
         type_of_use,
         technology_name,
         sample=None,
-        pipeline_step="",
+        pipeline_step=None,
         job="confirmatory",
     ):
         if not pipeline_step:

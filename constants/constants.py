@@ -7,16 +7,22 @@ Created on Oct 13, 2017
 import os
 from abc import ABC
 from enum import Enum
+from pathlib import Path
 from typing import Dict
 
 from decouple import config
 
 from constants.televir_directories import Televir_Directory_Constants
 from settings.constants_settings import ConstantsSettings as CS
-from pathlib import Path
 
 
 class Televir_Metadata_Constants:
+
+    MODEL_PORT = 8000
+    RECALL_MODEL = "gp_clf"
+    TARGET_RECALL = 0.95
+    RECALL_MODEL_TAX_LEVEL = "family"
+
     SOURCE = {
         "ENVSDIR": Televir_Directory_Constants.environments_directory,
         "CONDA": Televir_Directory_Constants.conda_directory,
@@ -36,6 +42,7 @@ class Televir_Metadata_Constants:
 
     REFERENCE_MAIN = Televir_Directory_Constants.ref_fasta_directory
 
+
     BINARIES = {
         "SOURCE": Televir_Directory_Constants.conda_directory,
         "ROOT": Televir_Directory_Constants.environments_directory,
@@ -44,11 +51,14 @@ class Televir_Metadata_Constants:
             CS.PIPELINE_NAME_read_classification: "hostDepletion/hostdep_env",
             CS.PIPELINE_NAME_viral_enrichment: "hostDepletion/hostdep_env",
             "centrifuge": "hostDepletion/hostdep_env",
+            "centrifuge-build": "hostDepletion/hostdep_env",
+            "centrifuge-inspect": "hostDepletion/hostdep_env",
             "diamond": "hostDepletion/hostdep_env",
             "kaiju": "hostDepletion/hostdep_env",
             "krakenuniq": "hostDepletion/hostdep_env",
             "blast": "hostDepletion/hostdep_env",
             "kraken2": "kraken2/kraken_env",
+            "k2": "kraken2/kraken_env",
             "fastviromeexplorer": "FastViromeExplorer/FastViromeExplorer",
             "kallisto": "FastViromeExplorer/fve",
             "java": "FastViromeExplorer/fve",
@@ -69,6 +79,7 @@ class Televir_Metadata_Constants:
             "bwa-mem": "remap/remap",
             "bowtie2": "remap/remap",
             "bowtie2_remap": "remap/remap",
+            "mapping_to_matrix": "M2M",
             "minimap2": "hostDepletion/hostdep_env",
             "minimap2_asm": "hostDepletion/hostdep_env",
             "minimap2_illu": "hostDepletion/hostdep_env",
@@ -129,7 +140,6 @@ class Televir_Metadata_Constants:
             self.BINARIES["ROOT"], self.BINARIES["software"][software], "bin", software
         )
 
-
 class Constants(object):
     """
     classdocs
@@ -138,6 +148,7 @@ class Constants(object):
     ### default user that has the default references to be used in mapping
     DEFAULT_USER = "system"
     DEFAULT_USER_PASS = "default_user_123_$%_2"
+    DEFAULT_USER_EMAIL = config("DEFAULT_USER_EMAIL")  ### it's defined in .env
     ## DEFAULT_USER_EMAIL = "insaflu@insa.min-saude.pt"        ### it's defined in .env
 
     ### user anonymous
@@ -207,9 +218,7 @@ class Constants(object):
     PROCESS_televir = "tv"
     ## set_televir_map_specific
     PROCESS_mapping = "m"
-    ## set_televir
-
-    
+    ## set_televir    
 
     ### separators
     SEPARATOR_COMMA = ","
@@ -447,7 +456,7 @@ class Constants(object):
         if process_type == Constants.PROCESS_link_files:
             return 4
         if process_type == Constants.PROCESS_televir:
-            return 16
+            return 8
         if process_type == Constants.PROCESS_mapping:
             return 8
         return 4

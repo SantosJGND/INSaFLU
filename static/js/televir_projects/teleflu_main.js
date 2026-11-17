@@ -67,7 +67,7 @@ var load_teleflu_workflows = function () {
                 workflowTitle.append(workflowName);
     
                 var stepContainer = $('<div>').addClass('step-container');
-                workflow.modules.forEach(function(step) {
+                workflow.modules.forEach(function (step) {
                     var stepCircleDisplay = $('<div>').addClass('step-circle-display ' + step.available).attr('title', step.module).attr('data-parameters', step.parameters).text(step.short_name);
                     var parametersContainerHover = $('<div>').addClass('parameters-container-hover');
                     stepCircleDisplay.append(parametersContainerHover);
@@ -143,7 +143,7 @@ var load_teleflu_workflows = function () {
                     mappingIgv.append(stackSamplesVariantIgv);
                     mappingIgv.append(stackSamplesVCF);
                 }
-    
+
                 workflowContainerAction.append(workflowTitle, stepContainer, workflowInfo, mappingIgv);
                 if (workflow.running_or_queued == true) {
                     var spinnerContainer = $('<div class="spinner-container"></div>');
@@ -153,6 +153,13 @@ var load_teleflu_workflows = function () {
                     spinnerContainer.append(spinner);
                     // Append the div to the workflow container
                     workflowContainerAction.append(spinnerContainer);
+                }
+
+                if (workflow.running_or_queued == true) {
+                    var killContainer = $('<div class="kill-container"></div>');
+                    var killWorkflowButton = $('<i>').attr('workflow-id', workflow.pk).addClass('killWorkflowButton fa fa-power-off').attr('data-toggle', 'modal').attr('data-target', '#id_kill_teleflu_modal').attr('title', 'Kill Workflow');
+                    killContainer.append(killWorkflowButton);
+                    workflowContainerAction.append(killContainer);
                 }
                 
                 /// Summary List
@@ -303,9 +310,9 @@ var load_teleflu_workflows = function () {
                         csrfmiddlewaretoken: csrf
                     },
                     success: function(data) {
-                        
                         if (data['is_ok'] === true) {
-                            location.reload();
+                            //location.reload();
+                            console.log('Stacked Samples creation started');
                         } else if (data['running'] === true) {
                             alert('Stacked Samples creation is running');
                         } else if (data['exists'] === true) {
@@ -316,11 +323,6 @@ var load_teleflu_workflows = function () {
                     }
                 });
             });
-
-            
-    
-
-
         }
     });
 };
@@ -394,9 +396,12 @@ var addToProject = function (workflow, project_id) {
     });
 }
 
+function clearWorkflowList() {
+    $('#workflow-list').empty();
+}
+
 
 var buttons_background = function () {
-
     $("#id-insaflu-button").click(function () {
         var url = $(this).attr('utl');
         var project_id = $('#id-insaflu-button').attr('project-id');
@@ -413,7 +418,8 @@ var buttons_background = function () {
             success: function (data) {
                 if (data["is_ok"] === true) {
                     alert('INSaFLU Project linked');
-                    location.reload();
+                    //location.reload();
+                    console.log('INSaFLU Project linked');
                 } else if (data["exists"] === true) {
                     alert('INSaFLU Project already exists');
                 } else {
@@ -424,9 +430,8 @@ var buttons_background = function () {
     });
 
     $("#id-map-button").click(function () {
-
         var workflow = $(this).attr('workflow');
-        var url = $(this).attr('utl');
+        var url = $(this).attr('mapping-url');
         var project_id = $('.workflow-main').attr('project_id');
         var csrf = $('.workflow-main').attr('csrf');
 
@@ -442,7 +447,10 @@ var buttons_background = function () {
             success: function (data) {
                 if (data["is_ok"] === true) {
                     alert('Workflow mapped to project');
-                    location.reload();
+                    //location.reload();
+                    clearWorkflowList(); // Clear the workflow list before reloading
+                    load_teleflu_workflows(); // Refresh the workflow list
+                    console.log('Workflow mapped to project');
                 } else if (data["is_empty"] === true) {
                     alert('No samples to map.');
                 } else {

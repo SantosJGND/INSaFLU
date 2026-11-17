@@ -2,11 +2,10 @@ import http.client
 import os
 import urllib.error
 from abc import ABC, abstractmethod
-from typing import List, Dict, Tuple, TYPE_CHECKING
+from typing import List, Dict, TYPE_CHECKING
 from Bio import Entrez
 from django.contrib.auth.models import User
 from dataclasses import dataclass
-from typing import Optional
 import pandas as pd
 
 if TYPE_CHECKING:
@@ -327,7 +326,7 @@ class EntrezWrapper:
 
     def __init__(
         self,
-        username: str,
+        user: User,
         bindir: str,
         outdir: str,
         outfile: str,
@@ -338,8 +337,7 @@ class EntrezWrapper:
         self.bindir = bindir
         self.outfile = outfile
         self.outdir = outdir
-
-        user = User.objects.get(username=username)
+        self.user = user
 
         Entrez.email = user.email
         Entrez.max_tries = 1
@@ -664,19 +662,27 @@ class EntrezWrapper:
         all_child_taxids = set()
 
         for leaf_taxid, lineage_list in lineages.items():
+            print(f"  [DEBUG persist] lineage for taxid {leaf_taxid}: {len(lineage_list)} nodes")
+            for n in lineage_list:
+                print(f"    node: tid={n.taxid!r}, name={n.name!r}, rank={n.rank!r}")
             prev = None
             for node in lineage_list:
                 tid = node.taxid
                 if not tid:
+                    print(f"    SKIP empty tid, prev stays {prev!r}")
                     continue
                 if tid not in node_info:
                     node_info[tid] = node
                 if prev is not None:
                     children.setdefault(prev, set()).add(tid)
                     all_child_taxids.add(tid)
+                    print(f"    children[{prev}] += {{{tid}}}")
                 prev = tid
 
         roots = sorted(set(node_info) - all_child_taxids)
+        print(f"  [DEBUG persist] node_info keys: {sorted(node_info.keys())}")
+        print(f"  [DEBUG persist] all_child_taxids: {sorted(all_child_taxids)}")
+        print(f"  [DEBUG persist] roots: {roots}")
         queue = deque()
         taxon_map = {}
 
@@ -686,6 +692,7 @@ class EntrezWrapper:
         while queue:
             tid, parent_taxon = queue.popleft()
             node = node_info[tid]
+            print(f"  [DEBUG persist] BFS create: tid={tid}, name={node.name!r}, rank={node.rank!r}, parent_taxid={parent_taxon.taxid if parent_taxon else None}")
 
             taxon, _ = Taxon.objects.get_or_create(
                 taxid=int(tid),
@@ -712,12 +719,14 @@ class EntrezWrapper:
             taxon_map[tid] = taxon
 
             for child_tid in children.get(tid, set()):
+                print(f"  [DEBUG persist]   enqueue child: {child_tid}")
                 queue.append((child_tid, taxon))
 
+        print(f"  [DEBUG persist] final taxon_map keys: {sorted(taxon_map.keys())}")
         return taxon_map
 
+    @staticmethod
     def link_referencetaxid_to_lineage(
-        self, 
         ref_taxid_str: str, 
         lineage: List[LineageNode],
         taxon_map: Dict[str, "Taxon"]
@@ -742,6 +751,7 @@ class EntrezWrapper:
             TaxonConstants.RANK_ORDER: "tax_order",
             TaxonConstants.RANK_FAMILY: "tax_family",
             TaxonConstants.RANK_GENUS: "tax_genus",
+            TaxonConstants.RANK_SPECIES: "tax_species",
         }
 
         try:
@@ -756,11 +766,13 @@ class EntrezWrapper:
                 continue
             normalized_rank = TaxonConstants.normalize_rank(node.rank)
             field = RANK_TO_FIELD.get(normalized_rank)
-            if field is not None:
+
+            if field:
                 taxon = taxon_map.get(tid)
-                if taxon is not None and getattr(ref_taxid_obj, field) != taxon:
+                if taxon and getattr(ref_taxid_obj, field) != taxon:
                     setattr(ref_taxid_obj, field, taxon)
                     changed = True
+
         if changed:
             ref_taxid_obj.save()
 

@@ -2,7 +2,7 @@ import datetime
 import os
 import sys
 from ast import Param
-from typing import Type
+from typing import Tuple, Optional
 
 from django.contrib.auth.models import User
 from django.core.files import File
@@ -18,10 +18,10 @@ from pathogen_identification.models import (QC_REPORT, ClassifierOutput,
                                             ReferenceMap_Main, RunAssembly,
                                             RunDetail, RunIndex, RunMain,
                                             RunReadsRegister, RunRemapMain,
-                                            TelevirRunQC)
+                                            RawReferenceCompoundModel)
 from pathogen_identification.modules.object_classes import Sample_runClass
 from pathogen_identification.modules.remap_class import Mapping_Instance
-from pathogen_identification.modules.run_main import RunEngine_class
+from pathogen_identification.modules.run_main import RunEngine_class, RunMainTree_class
 
 #from pathogen_identification.utilities.update_DBs import (Update_Run_QC,
 #                                                          get_run_parents)
@@ -32,12 +32,19 @@ from pathogen_identification.modules.run_main import RunEngine_class
 
 
 
-def get_run_parents(run_class: RunEngine_class, parameter_set: ParameterSet) -> tuple:
+def get_run_parents(run_class: RunMainTree_class, parameter_set: ParameterSet) -> tuple:
     """get run parents for run_class. Update run_class.run_data."""
-    user = User.objects.get(username=run_class.username)
+    user = run_class.owner
     project = Projects.objects.get(
         name=run_class.project_name, owner=user, is_deleted=False
     )
+
+    if run_class.run_type == run_class.RUN_TYPE_COMBINED_MAPPING:
+        run_type = RunMain.RUN_TYPE_COMBINED_MAPPING
+    elif run_class.run_type == run_class.RUN_TYPE_SCREENING:
+        run_type = RunMain.RUN_TYPE_SCREENING
+    else:
+        run_type = RunMain.RUN_TYPE_PIPELINE
 
     sample = run_class.sample_registered
 
@@ -48,11 +55,10 @@ def get_run_parents(run_class: RunEngine_class, parameter_set: ParameterSet) -> 
             )
         else:
             runmain = RunMain.objects.get(
-                project=project,
-                # suprun=run_class.suprun,
                 sample=sample,
-                # run_class.prefix,
                 parameter_set=parameter_set,
+                project=project,
+                run_type=run_type
             )
 
     except RunMain.DoesNotExist:
@@ -63,11 +69,29 @@ def get_run_parents(run_class: RunEngine_class, parameter_set: ParameterSet) -> 
 
 
 
-def Update_Run_QC(run_class: RunEngine_class, parameter_set: ParameterSet):
+def Update_Run_QC(run_class: RunMainTree_class, parameter_set: ParameterSet):
+
+    from pathogen_identification.models import TelevirRunQC, TelevirRunQcStack
+
     sample, runmain, _ = get_run_parents(run_class, parameter_set)
 
     if sample is None or runmain is None:
         return
+    
+
+    qc_stack, created = TelevirRunQcStack.objects.get_or_create(run=runmain)
+
+    if len(run_class.preprocess_method.software_list) == 0:
+        return
+    
+    input_reads = int(run_class.preprocess_method.software_list[0].reads_before_processing)
+    output_reads = int(run_class.preprocess_method.software_list[-1].reads_after_processing)
+    output_reads_percent = 0 if input_reads == 0 else output_reads / input_reads * 100
+
+    qc_stack.input_reads = input_reads
+    qc_stack.output_reads = output_reads
+    qc_stack.output_reads_percent = output_reads_percent
+    qc_stack.performed = True
 
     for method in run_class.preprocess_method.software_list:
         try:
@@ -89,6 +113,10 @@ def Update_Run_QC(run_class: RunEngine_class, parameter_set: ParameterSet):
                 ),
             )
             RunQC.save()
+
+            qc_stack.qc_reports.add(RunQC)
+    
+    qc_stack.save()
 
 
 def Update_project(project_directory_path, user: str = "admin"):
@@ -112,7 +140,6 @@ def Update_project(project_directory_path, user: str = "admin"):
         project = Projects(
             name=project_name,
             full_path=project_directory_path,
-            project_type=Projects.INHOUSE,
             created_by=user,
         )
         project.save()
@@ -195,7 +222,7 @@ def Update_QC_report(sample_class: Sample_runClass, parameter_set: ParameterSet)
 
 
 @transaction.atomic
-def Update_RunMain_Initial(run_class: RunEngine_class, parameter_set: ParameterSet):
+def Update_RunMain_Initial(run_class: RunMainTree_class, parameter_set: ParameterSet) -> Tuple[bool, None | RunMain]:
     """get run data
     Update ALL run TABLES:
     - RunMain,
@@ -203,20 +230,34 @@ def Update_RunMain_Initial(run_class: RunEngine_class, parameter_set: ParameterS
     :return: run_data
     """
 
+    print("########### UPDATING RUN TABLES FOR SAMPLE: ", run_class.sample_name, " ##############")
+    print("# run pk is: ", run_class.run_pk)
+
     try:
         with transaction.atomic():
-            Update_RunMain(run_class, parameter_set)
+            if run_class.run_type in [
+                run_class.RUN_TYPE_MAPPING_REQUEST,
+                run_class.RUN_TYPE_SCREENING,
+                run_class.RUN_TYPE_COMBINED_MAPPING,
+                run_class.RUN_TYPE_PANEL_MAPPING,
+            ]:
+                run_main = Update_RunMain_noCheck(run_class, parameter_set)
+            else:
+                run_main = Update_RunMain(run_class, parameter_set)
+        print(f"##############  Successfully run {run_main.pk} for sample {run_class.sample_name} ##############")
 
-        return True
+        return True, run_main
 
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         print(e)
         print(f"failed to update sample {run_class.sample_name}")
-        return False
+        return False, None
 
 
 @transaction.atomic
-def Update_RunMain_Secondary(run_class: RunEngine_class, parameter_set: ParameterSet):
+def Update_RunMain_Secondary(run_class: RunMainTree_class, parameter_set: ParameterSet):
     """get run data
     Update ALL run TABLES:
     - RunMain,
@@ -233,12 +274,14 @@ def Update_RunMain_Secondary(run_class: RunEngine_class, parameter_set: Paramete
         return True
 
     except IntegrityError as e:
+        import traceback
+        traceback.print_exc()
         print(f"failed to update sample {run_class.sample_name}")
         return False
 
 
 @transaction.atomic
-def Update_Assembly(run_class: RunEngine_class, parameter_set: ParameterSet):
+def Update_Assembly(run_class: RunMainTree_class, parameter_set: ParameterSet):
     """get run data
     Update TABLES:
     - RunMain,
@@ -256,13 +299,15 @@ def Update_Assembly(run_class: RunEngine_class, parameter_set: ParameterSet):
         return True
 
     except IntegrityError as e:
+        import traceback
+        traceback.print_exc()
         print(f"failed to update sample {run_class.sample_name}")
         return False
 
 
 @transaction.atomic
 def Update_Classification(
-    run_class: RunEngine_class, parameter_set: ParameterSet, tag="secondary"
+    run_class: RunMainTree_class, parameter_set: ParameterSet, tag="secondary"
 ):
     """get run data
     Update TABLES:
@@ -277,6 +322,7 @@ def Update_Classification(
     try:
         with transaction.atomic():
             Update_RunMain_noCheck(run_class, parameter_set, tag=tag)
+            Update_Run_Detail_noCheck(run_class, parameter_set)
             Update_Run_Classification(run_class, parameter_set)
 
         return True
@@ -286,8 +332,73 @@ def Update_Classification(
         return False
 
 
+def Update_Metagenomics_Classification(
+    run_class: RunMainTree_class, parameter_set: ParameterSet
+):
+
+    sample, runmain, _ = get_run_parents(run_class, parameter_set)
+
+    read_classification = run_class.read_classification_drone.classification_report
+    map_targets = run_class.metadata_tool.remap_targets
+
+    for target in map_targets:
+
+        try:
+            screening_count = read_classification[
+                read_classification.acc == target.accid
+            ]
+
+            if len(screening_count) > 0:
+                screening_count = screening_count[
+                    screening_count.acc == target.accid
+                ].shape[0]
+            else:
+                screening_count = 0
+
+            compound_ref = RawReferenceCompoundModel.objects.get(
+                taxid=target.taxid,
+                accid=target.accid,
+                sample=sample,
+            )
+            compound_ref.screening_count = screening_count
+            compound_ref.save()
+
+        except RawReferenceCompoundModel.DoesNotExist:
+            pass
+
+
 @transaction.atomic
-def Update_Remap(run_class: RunEngine_class, parameter_set: ParameterSet):
+def Update_Metagenomics(
+    run_class: RunMainTree_class, parameter_set: ParameterSet, tag="secondary"
+):
+    """get run data
+    Update TABLES:
+    - RunMain,
+    - ReadClassification,
+    - ContigClassification,
+
+    :param sample_class:
+    :return: run_data
+    """
+
+    try:
+        with transaction.atomic():
+            Update_RunMain_noCheck(run_class, parameter_set, tag=tag)
+            Update_Run_Detail_noCheck(run_class, parameter_set)
+            Update_Metagenomics_Classification(run_class, parameter_set)
+
+        return True
+
+    except IntegrityError as e:
+        import traceback
+        traceback.print_exc()
+        print(f"failed to update sample {run_class.sample_name}")
+        return False
+
+
+
+@transaction.atomic
+def Update_Remap(run_class: RunMainTree_class, parameter_set: ParameterSet):
     """get run data
     Update TABLES:
     - RunMain,
@@ -310,6 +421,8 @@ def Update_Remap(run_class: RunEngine_class, parameter_set: ParameterSet):
         return True
 
     except IntegrityError as e:
+        import traceback
+        traceback.print_exc()
         print(f"failed to update sample {run_class.sample_name}")
         return False
 
@@ -360,21 +473,17 @@ def RunIndex_Update_Retrieve_Key(project_name, sample_name):
     return new_name
 
 
-def Update_RunMain(run_class: RunEngine_class, parameter_set: ParameterSet):
+def Update_RunMain(run_class: RunMainTree_class, parameter_set: ParameterSet) -> RunMain:
     """update run data for run_class. Update run_class.run_data.
 
     :param run_class:
     :return: None
     """
-    user = User.objects.get(username=run_class.username)
+    user = run_class.owner
     project = Projects.objects.get(
         name=run_class.project_name, owner=user, is_deleted=False
     )
 
-    # sample = PIProject_Sample.objects.get(
-    #    name=run_class.sample.sample_name,
-    #    project=project,
-    # )
     sample = run_class.sample_registered
 
     reads_after_processing = run_class.sample.reads_after_processing
@@ -392,12 +501,27 @@ def Update_RunMain(run_class: RunEngine_class, parameter_set: ParameterSet):
 
     host_depletion_method = run_class.depletion_drone.classifier_method.name
     host_depletion = run_class.depletion_drone.deployed
+    if run_class.run_type == run_class.RUN_TYPE_COMBINED_MAPPING:
+        run_type = RunMain.RUN_TYPE_COMBINED_MAPPING
+    elif run_class.run_type == run_class.RUN_TYPE_SCREENING:
+        run_type = RunMain.RUN_TYPE_SCREENING
+    else:
+        run_type = RunMain.RUN_TYPE_PIPELINE
+
     try:
-        runmain = RunMain.objects.get(
-            project__name=run_class.sample.project_name,
-            sample=sample,
-            parameter_set=parameter_set,
-        )
+        if run_class.run_pk is not None:
+            runmain = RunMain.objects.get(
+                pk=run_class.run_pk,
+            )
+        else:
+            runmain = RunMain.objects.get(
+                project__name=run_class.sample.project_name,
+                #suprun=run_class.suprun,
+                sample=sample,
+                #name=run_class.prefix,
+                parameter_set=parameter_set,
+                run_type=run_type,
+            )
     except RunMain.DoesNotExist:
         runmain = RunMain(
             parameter_set=parameter_set,
@@ -432,6 +556,7 @@ def Update_RunMain(run_class: RunEngine_class, parameter_set: ParameterSet):
         )
 
         runmain.save()
+        run_class.run_pk = runmain.pk
 
     try:
         run_read_register = RunReadsRegister.objects.get(run=runmain)
@@ -455,10 +580,12 @@ def Update_RunMain(run_class: RunEngine_class, parameter_set: ParameterSet):
         )
 
         run_read_register.save()
+    
+    return runmain
 
 
-def Sample_update_combinations(run_class: Type[RunEngine_class]):
-    user = User.objects.get(username=run_class.username)
+def Sample_update_combinations(run_class: RunMainTree_class):
+    user = run_class.owner
     project = Projects.objects.get(
         name=run_class.project_name, owner=user, is_deleted=False
     )
@@ -473,7 +600,7 @@ def Sample_update_combinations(run_class: Type[RunEngine_class]):
     sample.save()
 
 
-def get_run_parents_and_reads(run_class: RunEngine_class, parameter_set: ParameterSet):
+def get_run_parents_and_reads(run_class: RunMainTree_class, parameter_set: ParameterSet) -> Tuple[Optional[PIProject_Sample], Optional[RunMain], Optional[Projects], Optional[RunReadsRegister]]:
 
     sample, runmain, project = get_run_parents(run_class, parameter_set)
 
@@ -489,8 +616,8 @@ def get_run_parents_and_reads(run_class: RunEngine_class, parameter_set: Paramet
 
 
 def Update_RunMain_noCheck(
-    run_class: RunEngine_class, parameter_set: ParameterSet, tag="secondary"
-):
+    run_class: RunMainTree_class, parameter_set: ParameterSet, tag="secondary"
+) -> Optional[RunMain]:
     """update run data for run_class. Update run_class.run_data.
 
     :param run_class:
@@ -501,7 +628,7 @@ def Update_RunMain_noCheck(
     )
 
     if sample is None or runmain is None:
-        return
+        return None
 
     reads_after_processing = run_class.sample.reads_after_processing
 
@@ -519,6 +646,9 @@ def Update_RunMain_noCheck(
     host_depletion_method = run_class.depletion_drone.classifier_method.name
     host_depletion = run_class.depletion_drone.deployed
 
+    assembly_exists = run_class.assembly_drone.assembly_exists if run_class.assembly_drone is not None else False
+    reads_proc_percent = 0 if run_class.sample.reads_before_processing == 0 else (reads_after_processing / run_class.sample.reads_before_processing) * 100
+
     runmain.parameter_set = parameter_set
     runmain.suprun = run_class.suprun
     runmain.project = project
@@ -527,7 +657,7 @@ def Update_RunMain_noCheck(
     runmain.params_file_path = run_class.params_file_path
     runmain.processed_reads_r1 = run_class.sample.r1.current
     runmain.processed_reads_r2 = run_class.sample.r2.current
-    runmain.assembly_performed = run_class.assembly_drone.assembly_exists
+    runmain.assembly_performed = assembly_exists
     runmain.assembly_method = run_class.assembly_drone.assembly_method.name
     runmain.reads_after_processing = f"{reads_after_processing:,}"
     runmain.reads_proc_percent = round(reads_proc_percent, 2)
@@ -564,9 +694,11 @@ def Update_RunMain_noCheck(
         run_read_register.depleted_reads_r1 = run_class.sample.r1.depleted
         run_read_register.depleted_reads_r2 = run_class.sample.r2.depleted
         run_read_register.save()
+    
+    return runmain
 
 
-def Update_Run_Detail(run_class: RunEngine_class, parameter_set: ParameterSet):
+def Update_Run_Detail(run_class: RunMainTree_class, parameter_set: ParameterSet):
     """
     Update ALL run TABLES for one run_class.:
     - RunMain,
@@ -651,7 +783,7 @@ def Update_Run_Detail(run_class: RunEngine_class, parameter_set: ParameterSet):
         run_detail.save()
 
 
-def Update_Run_Detail_noCheck(run_class: RunEngine_class, parameter_set: ParameterSet):
+def Update_Run_Detail_noCheck(run_class: RunMainTree_class, parameter_set: ParameterSet):
     """
     Update ALL run TABLES for one run_class.:
     - RunMain,
@@ -739,7 +871,7 @@ def Update_Run_Detail_noCheck(run_class: RunEngine_class, parameter_set: Paramet
         run_detail.save()
 
 
-def Update_Run_Assembly(run_class: RunEngine_class, parameter_set: ParameterSet):
+def Update_Run_Assembly(run_class: RunMainTree_class, parameter_set: ParameterSet):
     """
     Update ALL run TABLES for one run_class.:
     - RunMain,
@@ -792,7 +924,7 @@ def Update_Run_Assembly(run_class: RunEngine_class, parameter_set: ParameterSet)
         run_assembly.save()
 
 
-def Update_Run_Classification(run_class: RunEngine_class, parameter_set: ParameterSet):
+def Update_Run_Classification(run_class: RunMainTree_class, parameter_set: ParameterSet):
     """
     Update ALL run TABLES for one run_class.:
     - RunMain,
@@ -858,16 +990,11 @@ def Update_Run_Classification(run_class: RunEngine_class, parameter_set: Paramet
             software_name=run_class.read_classification_results.method,
         )
         classifier_output.save()
-        
-    if os.path.exists(run_class.read_classification_drone.classifier.full_report_path):
+    
+    if os.path.exists(run_class.read_classification_drone.classifier.report_path):
         ClassifierOutputFile.objects.update_or_create(
             classifier_output=classifier_output,
-            file_path=run_class.read_classification_drone.classifier.full_report_path
-        )
-    if os.path.exists(run_class.read_classification_drone.classifier.report_suffix):
-        ClassifierOutputFile.objects.update_or_create(
-            classifier_output=classifier_output,
-            file_path=run_class.read_classification_drone.classifier.report_suffix
+            file_path=run_class.read_classification_drone.classifier.report_path
         )
 
     try:
@@ -918,16 +1045,11 @@ def Update_Run_Classification(run_class: RunEngine_class, parameter_set: Paramet
             software_name=contig_classification.method,
         )
         classifier_output.save()
-        
-    if os.path.exists(run_class.contig_classification_drone.classifier.full_report_path):
+    
+    if os.path.exists(run_class.contig_classification_drone.classifier.report_path):
         ClassifierOutputFile.objects.update_or_create(
             classifier_output=classifier_output,
-            file_path=run_class.contig_classification_drone.classifier.full_report_path
-        )
-    if os.path.exists(run_class.contig_classification_drone.classifier.report_suffix):
-        ClassifierOutputFile.objects.update_or_create(
-            classifier_output=classifier_output,
-            file_path=run_class.contig_classification_drone.classifier.report_suffix
+            file_path=run_class.contig_classification_drone.classifier.report_path
         )
 
     for _ref, row in run_class.raw_targets.iterrows():
@@ -970,14 +1092,15 @@ def translate_classification_success(success):
 
 
 def summarize_description(description, max_length=100):
-
+    if description is None:
+        return ""
     if len(description) > max_length:
         return description[:max_length]
 
     return description
 
 
-def Update_Targets(run_class: RunEngine_class, runmain):
+def Update_Targets(run_class: RunMainTree_class, runmain):
 
     for target in run_class.metadata_tool.remap_targets:
         try:
@@ -1003,7 +1126,7 @@ def Update_Targets(run_class: RunEngine_class, runmain):
 
 @transaction.atomic
 def Update_RemapMain(
-    run_class: RunEngine_class,
+    run_class: RunMainTree_class,
     runmain: RunMain,
     sample: PIProject_Sample,
     parameter_set: ParameterSet,
@@ -1012,6 +1135,7 @@ def Update_RemapMain(
     try:
         remap_main = RunRemapMain.objects.get(run=runmain, sample=sample)
         remap_main.merged_log = run_class.merged_classification_summary
+        remap_main.missing_log = run_class.raw_classification_missing_accids
         remap_main.remap_plan = run_class.remap_plan_path
         remap_main.performed = run_class.remap_main.performed
         remap_main.method = run_class.remap_main.method
@@ -1026,6 +1150,7 @@ def Update_RemapMain(
             run=runmain,
             sample=sample,
             merged_log=run_class.merged_classification_summary,
+            missing_log = run_class.raw_classification_missing_accids,
             remap_plan=run_class.remap_plan_path,
             performed=run_class.remap_main.performed,
             method=run_class.remap_main.method,
@@ -1037,7 +1162,7 @@ def Update_RemapMain(
         remap_main.save()
 
 
-def Update_FinalReport(run_class: RunEngine_class, runmain, sample):
+def Update_FinalReport(run_class: RunMainTree_class, runmain, sample):
 
     for i, row in run_class.report.iterrows():
         if row["ID"] == "None":
@@ -1128,7 +1253,7 @@ def Update_FinalReport(run_class: RunEngine_class, runmain, sample):
             raw_reference.save()
 
 
-def Update_RefMap_DB(run_class: RunEngine_class, parameter_set: ParameterSet):
+def Update_RefMap_DB(run_class: RunMainTree_class, parameter_set: ParameterSet):
     """
     Update Remap TABLES with info on this run.
 
@@ -1169,6 +1294,7 @@ def Update_ReferenceMap(
             sample=sample,
             run=run,
         )
+        
     except ReferenceMap_Main.DoesNotExist:
         map_db = ReferenceMap_Main(
             reference=ref_map.reference.target.acc_simple,

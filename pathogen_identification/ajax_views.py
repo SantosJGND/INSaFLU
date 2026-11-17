@@ -7,6 +7,7 @@ from Bio import SeqIO
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.core.files.temp import NamedTemporaryFile
+from django.db.models.query import QuerySet
 from django.http import JsonResponse
 from django.template.loader import render_to_string
 from django.utils.safestring import mark_safe
@@ -59,11 +60,42 @@ def simplify_name(name: str):
     )
 
 
+def get_project_checked_boxes(request, project_pk):
+        
+    try:
+
+        check_box_all_checked = request.POST.get("check_box_all", False)
+        check_boxes = {
+            key: value
+            for key, value in request.session.items()
+            if key.startswith(Constants.CHECK_BOX)
+            and key != Constants.CHECK_BOX_ALL
+            and value is True
+            }
+
+        if check_box_all_checked is True:
+            sample_ids = PIProject_Sample.objects.filter(
+                project__pk = project_pk
+            ).values_list("pk", flat=True)
+        else:
+            sample_ids = []
+            for key, value in check_boxes.items():
+                if value:
+                    sample_id = key.split("_")[-1]
+                    if sample_id.isdigit():
+                        sample_ids.append(int(sample_id))
+    except Exception as e:
+        print("Error in get_project_checked_boxes:", e)
+        sample_ids = []
+
+    return sample_ids
+
 @login_required
 @require_POST
-def submit_sample_metagenomics_televir(request):
+def submit_sample_televir_combined_mapping(request):
+    data = {"is_ok": False, "is_deployed": False, "no_references": False}
+
     if request.headers.get("x-requested-with") == "XMLHttpRequest":
-        data = {"is_ok": False, "is_deployed": False, "no_references": False}
 
         process_SGE = ProcessSched()
 
@@ -72,9 +104,6 @@ def submit_sample_metagenomics_televir(request):
 
         user = sample.project.owner
         project = sample.project
-
-        ####
-        ####
 
         software_utils = SoftwareTreeUtils(user, project, sample=sample)
         runs_to_deploy = software_utils.check_runs_to_submit_metagenomics_sample(sample)
@@ -106,8 +135,8 @@ def submit_sample_metagenomics_televir(request):
             print(e)
             data["is_deployed"] = False
 
-        data["is_ok"] = True
-        return JsonResponse(data)
+    data["is_ok"] = True
+    return JsonResponse(data)
 
 
 @login_required
@@ -217,7 +246,7 @@ def deploy_remap(
                     run__run_type__in=[RunMain.RUN_TYPE_MAP_REQUEST],
                     run__sample__pk=sample_id,
                 )
-                .values_list("run__parameter_set__leaf__index", flat=True)
+                .values_list("run__parameter_set__leaf__tree_index", flat=True)
                 .distinct()
             )
 
@@ -238,7 +267,7 @@ def deploy_remap(
                     run__run_type__in=[RunMain.RUN_TYPE_MAP_REQUEST],
                     run__sample__pk=sample_id,
                 )
-                .values_list("run__parameter_set__leaf__index", flat=True)
+                .values_list("run__parameter_set__leaf__tree_index", flat=True)
                 .distinct()
             )
 
@@ -246,11 +275,11 @@ def deploy_remap(
                 references_mapped_dict[added_reference.accid].extend(
                     list(ref_workflows)
                 )
-            else:
+            elif added_reference.accid is not None:
                 references_mapped_dict[added_reference.accid] = list(ref_workflows)
 
-    software_utils = SoftwareTreeUtils(user, project, sample=sample)
-    runs_to_deploy, workflow_deployed_dict = (
+    software_utils = SoftwareTreeUtils(user, sample.project, sample=sample)
+    runs_to_deploy, _workflow_deployed_dict = (
         software_utils.check_runs_to_submit_mapping_only(sample)
     )
 
@@ -259,97 +288,92 @@ def deploy_remap(
 
     try:
 
-        if len(runs_to_deploy) > 0:
-            deployed = 0
-            deployed_refs = {
-                sample: {
-                    leaf: {"deployed": [], "not_deployed": []}
-                    for leaf in runs_to_deploy[sample]
-                }
-                for sample in runs_to_deploy
-            }
-            for sample, leaves_to_deploy in runs_to_deploy.items():
+        deployed = 0
+        deployed_refs = {
+            leaf: {"deployed": [], "not_deployed": []}
+                for leaf in runs_to_deploy[sample]
+        }
+        leaves_to_deploy = runs_to_deploy.get(sample, [])
 
-                reference_utils = RawReferenceUtils(sample)
+        reference_utils = RawReferenceUtils(sample)
 
-                count_references = (
-                    reference_utils.query_sample_compound_references_regressive()
-                )
+        count_references = (
+            reference_utils.query_sample_compound_references_regressive()
+        )
 
-                if count_references.exists() is False:
-                    continue
+        if count_references.exists() is False:
+            return data
 
-                for leaf in leaves_to_deploy:
+        for leaf in leaves_to_deploy:
 
-                    references_added = []
-                    references_to_add: List[RawReference] = []
+            references_added = []
+            references_to_add: List[RawReference] = []
 
-                    for reference_id in reference_id_list:
-                        reference = RawReference.objects.get(pk=int(reference_id))
-                        if reference.accid in references_mapped_dict:
-                            if leaf.index in references_mapped_dict[reference.accid]:
-                                deployed_refs[sample][leaf]["not_deployed"].append(
-                                    reference.accid
-                                )
-                                continue
-
-                        references_to_add.append(reference)
-                        reference.save()
-
-                        references_added.append(reference.accid)
-
-                    for added_reference in added_references:
-                        if added_reference.accid in references_mapped_dict:
-                            if (
-                                leaf.index
-                                in references_mapped_dict[added_reference.accid]
-                            ):
-                                deployed_refs[sample][leaf]["not_deployed"].append(
-                                    added_reference.accid
-                                )
-                                continue
-                        added_reference.pk = None
-
-                        references_to_add.append(added_reference)
-                        references_added.append(added_reference.accid)
-
-                    if len(references_added) == 0:
+            for reference_id in reference_id_list:
+                reference = RawReference.objects.get(pk=int(reference_id))
+                if reference.accid in references_mapped_dict:
+                    if leaf.pk in references_mapped_dict[reference.accid]:
+                        deployed_refs[leaf]["not_deployed"].append(
+                            reference.accid
+                        )
                         continue
 
-                    mapping_run = reference_manager.mapping_request_run_from_leaf(leaf)
-                    for reference in references_to_add:
-                        reference.pk = None
-                        reference.run = mapping_run
-                        reference.save()
+                references_to_add.append(reference)
+                reference.save()
 
-                    taskID = process_SGE.set_submit_televir_sample_metagenomics(
-                        user=user,
-                        sample_pk=sample.pk,
-                        leaf_pk=leaf.pk,
-                        mapping_request=True,
-                        map_run_pk=mapping_run.pk,
-                    )
-                    deployed += 1
-                    deployed_refs[sample][leaf]["deployed"] = references_added
+                references_added.append(reference.accid)
 
-            data["is_deployed"] = True
-            message = f"Sample {sample.name}, deployed {deployed} run{['', 's'][int(deployed != 1)]}. "
-            total_runs_deployed = 0
+            for added_reference in added_references:
+                if added_reference.accid in references_mapped_dict:
+                    if (
+                        leaf.index
+                        in references_mapped_dict[added_reference.accid]
+                    ):
+                        deployed_refs[leaf]["not_deployed"].append(
+                            added_reference.accid
+                        )
+                        continue
+                added_reference.pk = None
 
-            for sample, leaves_to_deploy in runs_to_deploy.items():
-                for leaf in leaves_to_deploy:
-                    if len(deployed_refs[sample][leaf]["deployed"]) > 0:
-                        message += f"Leaf {leaf.index}, deployed references: {', '.join(deployed_refs[sample][leaf]['deployed'])}. "
-                        total_runs_deployed += 1
+                references_to_add.append(added_reference)
+                references_added.append(added_reference.accid)
 
-                    if len(deployed_refs[sample][leaf]["not_deployed"]) > 0:
-                        message += f"References: {', '.join(deployed_refs[sample][leaf]['not_deployed'])} already mapped for Leaf {leaf.index}. "
+            if len(references_added) == 0:
+                continue
 
-            if total_runs_deployed == 0:
-                data["is_deployed"] = False
+            mapping_run = reference_manager.mapping_request_run_from_leaf(leaf)
+            for reference in references_to_add:
+                reference.pk = None
+                reference.run = mapping_run
+                reference.save()
 
-            data["message"] = message
-            data["is_ok"] = True
+            _taskID = process_SGE.set_submit_televir_sample_metagenomics(
+                user=user,
+                sample_pk=sample.pk,
+                leaf_pk=leaf.pk,
+                mapping_request=True,
+                map_run_pk=mapping_run.pk,
+            )
+            deployed += 1
+            deployed_refs[leaf]["deployed"] = references_added
+
+        data["is_deployed"] = True
+        message = f"Sample {sample.name}, deployed {deployed} run{['', 's'][int(deployed != 1)]}. "
+        total_runs_deployed = 0
+
+        for leaf in leaves_to_deploy:
+            if len(deployed_refs[leaf]["deployed"]) > 0:
+                message += f"Leaf {leaf.tree_index}, deployed references: {', '.join(deployed_refs[leaf]['deployed'])}. "
+                total_runs_deployed += 1
+
+            if len(deployed_refs[leaf]["not_deployed"]) > 0:
+                message += f"References: {', '.join(deployed_refs[leaf]['not_deployed'])} already mapped for Leaf {leaf.tree_index}. "
+
+        if total_runs_deployed == 0:
+            data["is_deployed"] = False
+
+        data["message"] = message
+        data["is_ok"] = True
 
     except Exception as e:
         print(e)
@@ -374,6 +398,105 @@ def submit_sample_mapping_televir(request):
         return JsonResponse(data)
 
     return JsonResponse({"is_ok": False})
+
+def control_references_to_map(project, controls) -> QuerySet[RawReference]:
+    """
+    get references to map
+    """
+    ### References in this project in general
+    references = RawReference.objects.filter(
+        run__project = project,
+    )
+
+    ### already mapped in control (to exclude)
+    references_control_mapped = references.filter(
+        run__sample__in = controls,
+        status__in = [RawReference.STATUS_MAPPED, RawReference.STATUS_MAPPING],
+    ).distinct("accid", "taxid").values_list("taxid", flat=True)
+
+    ### Mapped only in samples
+    references_control_unmapped= references.exclude(
+        run__sample__in = controls,
+    )
+    ### Filter for mapped or mapping and filter out those already mapped in control
+    references_control_unmapped = references_control_unmapped.filter(
+        status__in = [RawReference.STATUS_MAPPED, RawReference.STATUS_MAPPING],
+    ).distinct("accid", "taxid")
+
+    references_control_unmapped = references_control_unmapped.exclude(
+        taxid__in = references_control_mapped,
+    ).distinct("accid", "taxid")
+
+    return references_control_unmapped
+
+@login_required
+@require_POST
+def submit_control_mapping(request):
+    if request.headers.get("x-requested-with") == "XMLHttpRequest":
+        data = {"is_ok": True, "is_deployed": False, "is_empty": False, "message": ""}
+        references = []
+        errors = ""
+
+        try:
+            project_id = int(request.POST["project_id"])
+            project = Projects.objects.get(id=int(project_id))
+            user = request.user
+            process_SGE = ProcessSched()
+
+            if request.user != project.owner:
+                data["is_ok"] = False
+                data["message"] = "User is not the owner of the project"
+                return JsonResponse(data)
+            
+            samples = PIProject_Sample.objects.filter(project__pk=project_id, is_control=True)
+            software_utils = SoftwareTreeUtils(user, project)
+            samples_submitted = 0
+            references = control_references_to_map(project, samples)
+
+            for sample in samples:
+
+                runs_to_deploy, _ = software_utils.check_runs_to_submit_mapping_only(sample)
+
+                if len(runs_to_deploy) == 0:
+                    continue
+                runs_to_deploy = runs_to_deploy.get(sample, [])
+                for leaf in runs_to_deploy:
+                    reference_manager = SampleReferenceManager(sample)
+                    mapping_run = reference_manager.control_mapping_run_from_leaf(
+                        leaf
+                    )
+                    ###############################
+
+                    for reference in references:
+                        reference.pk = None
+                        reference.run = mapping_run
+                        reference.save()
+
+                    taskID = (
+                        process_SGE.set_submit_televir_sample_metagenomics(
+                            user=request.user,
+                            sample_pk=sample.pk,
+                            leaf_pk=leaf.pk,
+                            mapping_request=True,
+                            map_run_pk=mapping_run.pk,
+                        )
+                    )
+                    samples_submitted += 1
+
+        except Exception as e:
+            print(e)
+            import traceback
+            traceback.print_exc()
+            print("error")
+            errors = f" Error deploying control mapping for project {project.name}"
+
+            data["is_ok"] = False
+
+        data["is_deployed"] = samples_submitted > 0
+        data["samples_deployed"] = samples_submitted
+        data["message"] = f"Deployed {samples_submitted} samples -- against {len(references)}. {errors}"
+
+        return JsonResponse(data)
 
 
 @login_required
@@ -470,13 +593,7 @@ def submit_samples_mapping_panels(request):
 
         project_samples = PIProject_Sample.objects.filter(project=project)
 
-        sample_ids = request.POST.getlist("sample_ids[]")
-        check_box_all_checked = request.POST.get("check_box_all_checked", False)
-        if check_box_all_checked:
-            sample_ids = []
-        else:
-            sample_ids = [int(sample_id) for sample_id in sample_ids]
-
+        sample_ids = get_project_checked_boxes(request, project_id)
         if len(sample_ids) > 0:
             project_samples = project_samples.filter(pk__in=sample_ids)
 
@@ -488,6 +605,7 @@ def submit_samples_mapping_panels(request):
                 reference_manager = SampleReferenceManager(sample)
 
                 software_utils = SoftwareTreeUtils(user, project, sample=sample)
+                
                 runs_to_deploy, _ = (
                     software_utils.check_runs_to_submit_mapping_only(sample)
                 )
@@ -568,8 +686,9 @@ def submit_project_samples_mapping_televir(request):
 
         project_samples = PIProject_Sample.objects.filter(project=project)
 
-        sample_ids = request.POST.getlist("sample_ids[]")
-        sample_ids = [int(sample_id) for sample_id in sample_ids]
+        sample_ids = get_project_checked_boxes(
+            request, project_id
+        )
 
         if len(sample_ids) > 0:
             project_samples = project_samples.filter(pk__in=sample_ids)
@@ -636,19 +755,17 @@ def deploy_ProjectPI(request):
 
         user_id = int(request.POST["user_id"])
         user = User.objects.get(id=int(user_id))
-
-        samples = PIProject_Sample.objects.filter(
-            project=project, is_deleted_in_file_system=False
+        sample_ids = get_project_checked_boxes(
+            request, project_id
         )
-
-        sample_ids = request.POST.getlist("sample_ids[]")
-        sample_ids = [int(sample_id) for sample_id in sample_ids]
-        check_box_all_checked = request.POST.get("check_box_all_checked", False)
-
-        if check_box_all_checked:
-            samples = samples.filter(is_deleted_in_file_system=False)
-        elif len(sample_ids) > 0:
-            samples = samples.filter(pk__in=sample_ids)
+        if len(sample_ids) == 0:
+            samples = PIProject_Sample.objects.filter(
+                project=project, is_deleted_in_file_system=False
+            )
+        else:
+            samples = PIProject_Sample.objects.filter(
+                project=project, is_deleted_in_file_system=False, pk__in=sample_ids
+            )
 
         software_utils = SoftwareTreeUtils(user, project)
 
@@ -658,11 +775,23 @@ def deploy_ProjectPI(request):
                 runs_to_deploy = software_utils.check_and_set_runs_to_deploy_sample(sample)
 
                 if len(runs_to_deploy) > 0:
+                    (job_name_wait, job_name) = user.profile.get_name_slurm_seq(
+                        PICS.PROCESS_TYPE_DEPLOYMENT, Constants.PROCESS_REGULAR
+                    )
+
+                    from pathogen_identification.models import RunBatch
+                    run_batch = RunBatch.objects.create(project=project)
+                    run_batch.nodes.set([leaf for _, leaves in runs_to_deploy.items() for leaf in leaves])
+                    run_batch.save()
+
                     for sample, _ in runs_to_deploy.items():
+
                         taskID = process_SGE.set_submit_televir_sample(
                             user=user,
-                            project_pk=project.pk,
+                            batch_pk=run_batch.pk,
                             sample_pk=sample.pk,
+                            job_name=job_name,
+                            vect_job_name_wait=[job_name_wait]
                         )
 
                     data["is_deployed"] = True
@@ -697,13 +826,14 @@ def deploy_ProjectPI_combined_runs(request):
             project=project, is_deleted_in_file_system=False
         )
 
-        sample_ids = request.POST.getlist("sample_ids[]")
-        check_box_all_checked = request.POST.get("check_box_all_checked", False)
-        if check_box_all_checked:
-            samples = samples.filter(is_deleted_in_file_system=False)
-        elif len(sample_ids) > 0:
-            samples = samples.filter(
-                pk__in=[int(sample_id) for sample_id in sample_ids]
+        sample_ids = get_project_checked_boxes(
+            request, project_id)
+        
+        if len(sample_ids) > 0:
+            samples = samples.filter(pk__in=sample_ids)
+        else:
+            samples = PIProject_Sample.objects.filter(
+                project=project, is_deleted_in_file_system=False
             )
 
         try:
@@ -761,9 +891,10 @@ def submit_televir_project_sample(request):
     """
     submit a new sample to televir project
     """
+    data = {"is_ok": False, "is_deployed": False}
     if request.headers.get("x-requested-with") == "XMLHttpRequest":
         try:
-            data = {"is_ok": False, "is_deployed": False}
+            
             process_SGE = ProcessSched()
             user = request.user
 
@@ -780,22 +911,34 @@ def submit_televir_project_sample(request):
 
         try:
             if len(runs_to_deploy) > 0:
+
+                (job_name_wait, job_name) = user.profile.get_name_slurm_seq(
+                    PICS.PROCESS_TYPE_DEPLOYMENT, Constants.PROCESS_REGULAR
+                )
+
+                from pathogen_identification.models import RunBatch
+                run_batch = RunBatch.objects.create(project=project)
+                run_batch.nodes.set([leaf for _, leaves in runs_to_deploy.items() for leaf in leaves])
+                run_batch.save()
+            
                 for sample, _ in runs_to_deploy.items():
                     _ = process_SGE.set_submit_televir_sample(
                         user=request.user,
-                        project_pk=project.pk,
+                        batch_pk=run_batch.pk,
                         sample_pk=sample.pk,
+                        job_name = job_name,
+                        vect_job_name_wait=[job_name_wait]
                     )
 
                 data["is_deployed"] = True
 
         except Exception as e:
             print(e)
-            print("this gave an error")
             data["is_deployed"] = False
         print(data)
         data["is_ok"] = True
-        return JsonResponse(data)
+
+    return JsonResponse(data)
 
 
 @login_required
@@ -1003,13 +1146,13 @@ def Project_explify_delete_external(request):
         return JsonResponse(data)
 
 
-@login_required
 @require_POST
 def kill_televir_project_sample(request):
     """
     kill all processes a sample, set queued to false
     """
-
+    print("kill_televir_project_sample")
+    
     if request.headers.get("x-requested-with") == "XMLHttpRequest":
         data = {"is_ok": False, "is_deployed": False}
 
@@ -1033,7 +1176,7 @@ def kill_televir_project_sample(request):
 
                 if single_run_param.status == ParameterSet.STATUS_RUNNING:
                     single_run_param.delete_run_data()
-
+                
                 process_SGE.kill_televir_process_controler_runs(
                     user.pk, project.pk, sample.pk, single_run_param.leaf.pk
                 )
@@ -1065,7 +1208,6 @@ def kill_televir_project_tree_sample(request):
 
         sample_id = int(request.POST["sample_id"])
         sample = PIProject_Sample.objects.get(id=int(sample_id))
-        project = Projects.objects.get(id=int(sample.project.pk))
 
         runs_params = ParameterSet.objects.filter(
             sample=sample,
@@ -1081,15 +1223,33 @@ def kill_televir_project_tree_sample(request):
 
                 if single_run_param.status == ParameterSet.STATUS_RUNNING:
                     single_run_param.delete_run_data()
+                
+                single_run_param.status = ParameterSet.STATUS_KILLED
+                single_run_param.save()
+
+                runs = RunMain.objects.filter(
+                    sample=sample, parameter_set=single_run_param,
+                    status__in=[RunMain.STATUS_RUNNING, RunMain.STATUS_QUEUED]
+                )
+                for run in runs:
+                    run.status = RunMain.STATUS_KILLED
+                    run.save()
 
                 process_SGE.kill_televir_process_controler_samples(
-                    user.pk, project.pk, sample.pk, single_run_param.leaf.pk
+                    user.pk, sample.pk, single_run_param.leaf.pk
                 )
                 killed += 1
 
             except ProcessControler.DoesNotExist as e:
                 print(e)
                 print("ProcessControler.DoesNotExist")
+                pass
+
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                print(e)
+                print("Exception")
                 pass
 
             single_run_param.status = ParameterSet.STATUS_KILLED
@@ -1104,30 +1264,68 @@ def kill_televir_project_tree_sample(request):
 
 @login_required
 @require_POST
+def kill_televir_project_focus(request):
+    data = {"is_ok": False, "is_deployed": False}
+    if request.headers.get("x-requested-with") == "XMLHttpRequest":
+
+        process_SGE = ProcessSched()
+        user = request.user
+        from pathogen_identification.models import TelefluMapping
+        teleflu_mapping_id = int(request.POST["teleflu_mapping_id"])
+        teleflu_mapping = TelefluMapping.objects.get(id=int(teleflu_mapping_id))
+        samples = TeleFluSample.objects.filter(teleflu_project=teleflu_mapping.teleflu_project)
+
+        for sample in samples:
+            project_sample = sample.televir_sample
+            runs = RunMain.objects.filter(
+                sample=project_sample, parameter_set__leaf = teleflu_mapping.leaf,
+                status__in=[RunMain.STATUS_RUNNING, RunMain.STATUS_QUEUED, RunMain.STATUS_PREP]
+            )
+            for run in runs:
+
+                
+                try:
+                    process_SGE.kill_televir_process_controler_samples(
+                        user.pk, project_sample.pk, teleflu_mapping.leaf.pk
+                    )
+                    run.status = RunMain.STATUS_KILLED
+                    run.save()
+                except ProcessControler.DoesNotExist as e:
+                    print(e)
+                    print("ProcessControler.DoesNotExist")
+                    import traceback
+                    traceback.print_exc()
+                    pass
+                    
+            data["is_ok"] = True
+
+    return JsonResponse(data)
+
+
+
+@login_required
+@require_POST
 def kill_televir_project_all_sample(request):
     """
     kill all processes a sample, set queued to false
     """
-
+    data = {"is_ok": False, "is_deployed": False, "is_empty": True}
     if request.headers.get("x-requested-with") == "XMLHttpRequest":
-        data = {"is_ok": False, "is_deployed": False, "is_empty": True}
 
         process_SGE = ProcessSched()
         user = request.user
 
         project_id = int(request.POST["project_id"])
         project = Projects.objects.get(id=int(project_id))
-        sample_ids = request.POST.getlist("sample_ids[]")
-        check_box_all_checked = request.POST.get("check_box_all_checked", False)
-        if check_box_all_checked:
-            sample_ids = []
+        sample_ids = get_project_checked_boxes(request, project_id)
+        if len(sample_ids) == 0:
+            samples= PIProject_Sample.objects.filter(
+                project=project, is_deleted_in_file_system=False
+            )
         else:
-            sample_ids = [int(sample_id) for sample_id in sample_ids]
-
-        samples = PIProject_Sample.objects.filter(project__id=int(project_id))
-
-        if len(sample_ids) > 0:
-            samples = samples.filter(pk__in=sample_ids)
+            samples = PIProject_Sample.objects.filter(
+                project=project, is_deleted_in_file_system=False, pk__in=sample_ids
+            )
 
         killed = 0
 
@@ -1145,9 +1343,20 @@ def kill_televir_project_all_sample(request):
 
                     if single_run_param.status == ParameterSet.STATUS_RUNNING:
                         single_run_param.delete_run_data()
+                    
+                    single_run_param.status = ParameterSet.STATUS_KILLED
+                    single_run_param.save()
+
+                    runs = RunMain.objects.filter(
+                        sample=sample, parameter_set=single_run_param,
+                        status__in=[RunMain.STATUS_RUNNING, RunMain.STATUS_QUEUED]
+                    )
+                    for run in runs:
+                        run.status = RunMain.STATUS_KILLED
+                        run.save()
 
                     process_SGE.kill_televir_process_controler_samples(
-                        user.pk, project.pk, sample.pk, single_run_param.leaf.pk
+                        user.pk, sample.pk, single_run_param.leaf.pk
                     )
                     killed += 1
 
@@ -1162,8 +1371,8 @@ def kill_televir_project_all_sample(request):
         if killed > 0:
             data["is_empty"] = False
 
-        data["is_ok"] = True
-        return JsonResponse(data)
+    data["is_ok"] = True
+    return JsonResponse(data)
 
 
 @login_required
@@ -1189,7 +1398,7 @@ def sort_report_projects(request):
                 final_reports = FinalReport.objects.filter(sample=sample)
 
                 report_sorter = ReportSorter(
-                    sample, final_reports, report_layout_params
+                    sample, final_reports, report_layout_params, filter=True
                 )
 
                 if report_sorter.reports_available is False:
@@ -1430,8 +1639,6 @@ def create_teleflu_project(request):
         data = {"is_ok": False, "is_error": False, "exists": False, "is_empty": False}
 
         ref_ids = request.POST.getlist("ref_ids[]")
-        sample_ids = request.POST.getlist("sample_ids[]")
-        check_box_all_checked = request.POST.get("check_box_all_checked", False)
 
         def teleflu_project_name_from_refs(ref_ids):
 
@@ -1457,10 +1664,7 @@ def create_teleflu_project(request):
         first_ref = RawReference.objects.get(pk=int(ref_ids[0]))
 
         project = first_ref.run.project
-        if check_box_all_checked:
-            sample_ids = PIProject_Sample.objects.filter(project=project).values_list(
-                "pk", flat=True
-            )
+        sample_ids = get_project_checked_boxes(request, project.pk)
         date = datetime.now()
 
         try:
@@ -1508,7 +1712,6 @@ def create_teleflu_project(request):
             data["project_name"] = teleflu_project.name
 
         except Exception as e:
-            print("Error creating teleflu project")
             print(e)
             data["is_error"] = True
             return JsonResponse(data)
@@ -1674,34 +1877,36 @@ def get_project_tags(request):
 
         user = request.user
         project_id = int(request.POST.get("project_id", 0))
-        project = Projects.objects.filter(id=project_id, owner=user).first()
+        project = Projects.objects.filter(pk=project_id, owner=user).first()
 
         if project:
             tags = ProjectTagAssignment.objects.filter(project=project).select_related("tag")
             for tag_assignment in tags:
-                data["tags"].append({"id": tag_assignment.tag.id, "name": tag_assignment.tag.name})
+                data["tags"].append({"id": tag_assignment.tag.pk, "name": tag_assignment.tag.name})
 
             data["is_ok"] = True
         return JsonResponse(data)
 
+@require_POST
 @csrf_protect
-def delete_tag(request):
+def delete_project_tag(request):
     """
     Delete a tag for the current user
     """
+    data = {"is_ok": False}
     if request.headers.get("x-requested-with") == "XMLHttpRequest":
-        data = {"is_ok": False}
-
+        
         user = request.user
-        tag_id = int(request.POST.get("tag_id", 0))
+        tag_id = int(request.POST.get("tag_id", None))
+        if tag_id is None:
+            return JsonResponse(data)
         tag = ProjectTag.objects.filter(id=tag_id, owner=user, is_deleted=False).first()
 
         if tag:
-            tag.is_deleted = True
             tag.save()
             data["is_ok"] = True
 
-        return JsonResponse(data)
+    return JsonResponse(data)
 
 @csrf_protect
 def create_user_project_tag(request):
@@ -1735,7 +1940,6 @@ def possible_project_tags(request):
     tags not yet assigned to this project"""
     if request.headers.get("x-requested-with") == "XMLHttpRequest":
         data = {"is_ok": False, "tags": []}
-        print(request.POST)
         user = request.user
         project_id = int(request.POST.get("project_id", 0))
         project = Projects.objects.filter(id=project_id, owner=user).first()
@@ -1770,6 +1974,27 @@ def assign_tag_to_project(request):
             data["is_ok"] = True
 
         return JsonResponse(data)
+    
+@csrf_protect
+def remove_tag_from_project(request):
+    """
+    Remove a tag from a project for the current user
+    """
+    data = {"is_ok": False}
+    if request.headers.get("x-requested-with") == "XMLHttpRequest":
+
+        user = request.user
+        project_id = int(request.POST.get("project_id", 0))
+        tag_id = int(request.POST.get("tag_id", 0))
+
+        project = Projects.objects.filter(id=project_id, owner=user).first()
+        tag = ProjectTag.objects.filter(id=tag_id, owner=user, is_deleted=False).first()
+
+        if project and tag:
+            ProjectTagAssignment.objects.filter(tag=tag, project=project).delete()
+            data["is_ok"] = True
+
+    return JsonResponse(data)
 
 #########################################################################
 ##################### TELEVIR FOCUS FUNCTIONS (TELEFLU) #################
@@ -1816,6 +2041,8 @@ def set_teleflu_check_box_values(request):
         return JsonResponse(data)
 
 
+
+
 @login_required
 @require_POST
 def add_teleflu_sample(request):
@@ -1829,16 +2056,12 @@ def add_teleflu_sample(request):
             "not_added": False,
         }
 
-        sample_ids = request.POST.getlist("sample_ids[]")
         ref_id = int(request.POST["teleflu_id"])
-        check_box_all_checked = request.POST.get("check_box_all_checked", False)
 
         teleflu_project = TeleFluProject.objects.get(pk=ref_id)
-        if check_box_all_checked:
-            sample_ids = PIProject_Sample.objects.filter(
-                project=teleflu_project.televir_project
-            ).values_list("pk", flat=True)
-
+        sample_ids = get_project_checked_boxes(
+            request, teleflu_project.televir_project.pk
+        )
         if len(sample_ids) == 0:
             data["is_empty"] = True
             return JsonResponse(data)
@@ -1935,7 +2158,7 @@ def teleflu_node_info(params_df, leaf: SoftwareTreeNode):
 
     node_info = {
         "pk": leaf.pk,
-        "node": f"{leaf.software_tree.global_index}-{leaf.index}",
+        "node": f"{leaf.software_tree.global_index}-{leaf.tree_index}",
         "tree": leaf.software_tree.global_index,
         "modules": [],
     }
@@ -1944,20 +2167,23 @@ def teleflu_node_info(params_df, leaf: SoftwareTreeNode):
         acronym = [x[0] for x in pipeline_step.split(" ")]
         acronym = "".join(acronym).upper()
         params = params_df[params_df.module == pipeline_step].to_dict("records")
-        if params:  # if there are parameters for this module
-            software = params[0].get("software")
+        total_params = []
+        for param in params:
+            
+            software = param.get("software_name", "")
             software = software.split("_")[0]
 
-            params = params[0].get("value")
-            params = excise_paths_leaf_last(params)
-            params = f"{software} {params}"
-        else:
-            params = ""
+            param_value = param.get("value", "")
+            param_value = excise_paths_leaf_last(param_value)
+            param_value = f"{software} {param_value}"
+            total_params.append(param_value)
+        
+        total_params = " | ".join(total_params)
 
         node_info["modules"].append(
             {
                 "module": pipeline_step,
-                "parameters": params,
+                "parameters": total_params,
                 "short_name": acronym,
                 "available": (
                     "software_on"
@@ -1987,54 +2213,62 @@ def load_teleflu_workflows(request):
         teleflu_project = TeleFluProject.objects.get(pk=teleflu_project_pk)
         mapping_workflows = []
         existing_mapping_pks = []
+        
+        try:
+            for mapping in mappings:
+                if mapping.leaf is None:
+                    continue
 
-        for mapping in mappings:
-            if mapping.leaf is None:
-                continue
+                params_df = utils_manager.get_leaf_parameters(mapping.leaf)
+                node_info = teleflu_node_info(params_df, mapping.leaf)
+                
 
-            params_df = utils_manager.get_leaf_parameters(mapping.leaf)
-            node_info = node_info = teleflu_node_info(params_df, mapping.leaf)
+                samples_mapped = mapping.mapped_samples
 
-            samples_mapped = mapping.mapped_samples
+                samples_stacked = mapping.stacked_samples_televir
+                node_info["running_or_queued"] = mapping.queued_or_running_mappings_exist
+                node_info["pk"] = mapping.pk
+                node_info["samples_stacked"] = samples_stacked.count()
+                node_info["samples_to_stack"] = samples_mapped.exclude(
+                    pk__in=samples_stacked.values_list("pk", flat=True)
+                ).exists()
 
-            samples_stacked = mapping.stacked_samples_televir
-            node_info["running_or_queued"] = mapping.queued_or_running_mappings_exist
-            node_info["pk"] = mapping.pk
-            node_info["samples_stacked"] = samples_stacked.count()
-            node_info["samples_to_stack"] = samples_mapped.exclude(
-                pk__in=samples_stacked.values_list("pk", flat=True)
-            ).exists()
+                sample_summary, mapped_samples, mapped_success = mapping.sample_summary
 
-            sample_summary, mapped_samples, mapped_success = mapping.sample_summary
+                mapped_fail = mapped_samples - mapped_success
 
-            mapped_fail = mapped_samples - mapped_success
+                node_info["samples_mapped"] = samples_mapped.count()
+                node_info["mapped_success"] = mapped_success
+                node_info["mapped_fail"] = mapped_fail
+                node_info["left_to_map"] = (
+                    teleflu_project.nsamples - mapped_success - mapped_fail
+                ) > 0
 
-            node_info["samples_mapped"] = samples_mapped.count()
-            node_info["mapped_success"] = mapped_success
-            node_info["mapped_fail"] = mapped_fail
-            node_info["left_to_map"] = (
-                teleflu_project.nsamples - mapped_success - mapped_fail
-            ) > 0
+                node_info["sample_summary"] = sample_summary
+                existing_mapping_pks.append(mapping.leaf.pk)
+                node_info["stacked_html_exists"] = os.path.exists(
+                    mapping.mapping_igv_report
+                )
+                node_info["stacked_html"] = mapping.mapping_igv_report.replace(
+                    "/insaflu_web/INSaFLU", ""
+                )
 
-            node_info["sample_summary"] = sample_summary
-            existing_mapping_pks.append(mapping.leaf.pk)
-            node_info["stacked_html_exists"] = os.path.exists(
-                mapping.mapping_igv_report
-            )
-            node_info["stacked_html"] = mapping.mapping_igv_report.replace(
-                "/insaflu_web/INSaFLU", ""
-            )
+                node_info["stacked_variants_vcf"] = mapping.variants_vcf_media_path
 
-            node_info["stacked_variants_vcf"] = mapping.variants_vcf_media_path
+                mapping_workflows.append(node_info)
 
-            mapping_workflows.append(node_info)
+            data["mapping_workflows"] = mapping_workflows
+            data["is_ok"] = True
+            data["teleflu_project_pk"] = teleflu_project_pk
+            data["project_nsamples"] = teleflu_project.nsamples
 
-        data["mapping_workflows"] = mapping_workflows
-        data["is_ok"] = True
-        data["teleflu_project_pk"] = teleflu_project_pk
-        data["project_nsamples"] = teleflu_project.nsamples
+            return JsonResponse(data)
+        except Exception as e:
+            print(e)
+            import traceback
+            traceback.print_exc()
+            data["is_ok"] = False 
 
-        return JsonResponse(data)
 
     return JsonResponse(data)
 
@@ -2237,22 +2471,64 @@ def deploy_televir_map(request):
     """
     prepare data for deployment of pathogen identification.
     """
-
+    data = {"is_ok": False, "is_deployed": False}
     if request.headers.get("x-requested-with") == "XMLHttpRequest":
-        data = {"is_ok": False, "is_deployed": False}
 
         process_SGE = ProcessSched()
         user = request.user
 
         reference_id = int(request.POST["reference_id"])
         project_id = int(request.POST["project_id"])
-        taskID = process_SGE.set_submit_televir_map(
-            user, reference_pk=reference_id, project_pk=project_id
+
+        reference = RawReference.objects.get(pk=reference_id)
+        project = Projects.objects.get(pk=project_id)
+
+        if reference.run is None:
+            data["is_error"] = True
+            data["message"] = "Reference has no associated run."
+            return JsonResponse(data)
+        
+        sample = reference.run.sample
+
+        if sample is None:
+            data["is_error"] = True
+            data["message"] = "Reference has no associated sample."
+            return JsonResponse(data) 
+        
+        software_utils = SoftwareTreeUtils(user, project, sample)
+        reference_manager = SampleReferenceManager(sample)
+        runs_to_deploy, _ = (
+            software_utils.check_runs_to_submit_mapping_only(sample)
         )
+
+        for leaf in runs_to_deploy[sample]:
+            run = reference_manager.mapping_request_run_from_leaf(leaf)
+            if run is None:
+                continue
+            reference.status = RawReference.STATUS_MAPPING_REQUESTED
+            reference.save()
+            reference.pk = None
+            reference.run = run
+            reference.save()
+            
+            taskID = process_SGE.set_submit_televir_sample_metagenomics(
+                user=user,
+                sample_pk=sample.pk,
+                leaf_pk=leaf.pk,
+                mapping_request=True,
+                map_run_pk=run.pk,
+            )
+
+            data["is_deployed"] = True
+    
+
+        #taskID = process_SGE.set_submit_televir_map(
+        #    user, reference_pk=reference_id, project_pk=project_id
+        #)
 
         data["is_ok"] = True
 
-        return JsonResponse(data)
+    return JsonResponse(data)
 
 
 #######################################################################
@@ -3034,93 +3310,98 @@ def IGV_display(request):
     if request.headers.get("x-requested-with") == "XMLHttpRequest":
         data = {"is_ok": False}
         if request.method == "GET":
-            sample_pk = request.GET.get("sample_pk")
-            run_pk = request.GET.get("run_pk")
-            reference = request.GET.get("accid")
-            unique_id = request.GET.get("unique_id")
+            try:
+                sample_pk = request.GET.get("sample_pk")
+                run_pk = request.GET.get("run_pk")
+                reference = request.GET.get("accid")
+                unique_id = request.GET.get("unique_id")
 
-            sample = PIProject_Sample.objects.get(pk=int(sample_pk))
-            sample_name = sample.name
-            run = RunMain.objects.get(pk=int(run_pk))
+                sample = PIProject_Sample.objects.get(pk=int(sample_pk))
+                sample_name = sample.name
+                run = RunMain.objects.get(pk=int(run_pk))
 
-            ref_map = ReferenceMap_Main.objects.get(
-                reference=unique_id, sample=sample, run=run
-            )
-
-            def remove_pre_static(path: str) -> str:
-                cwd = os.getcwd()
-                if path.startswith(cwd):
-                    path = path[len(cwd) :]
-
-                path = path.replace(STATIC_ROOT, STATIC_URL)
-
-                return path
-
-            #################################################
-            ### bam file
-            path_name_bam = remove_pre_static(
-                ref_map.bam_file_path,
-            )
-            path_name_bai = remove_pre_static(
-                ref_map.bai_file_path,
-            )
-            path_name_reference = remove_pre_static(
-                ref_map.fasta_file_path,
-            )
-            path_name_reference_index = remove_pre_static(
-                ref_map.fai_file_path,
-            )
-            path_name_vcf = remove_pre_static(ref_map.vcf)
-
-            data["is_ok"] = True
-            data["path_bam"] = mark_safe(request.build_absolute_uri(path_name_bam))
-
-            data["path_reference"] = mark_safe(
-                request.build_absolute_uri(path_name_reference)
-            )
-            data["path_reference_index"] = mark_safe(
-                request.build_absolute_uri(path_name_reference_index)
-            )
-            data["reference_name"] = reference
-
-            #### other files
-            data["bam_file_id"] = mark_safe(
-                '<strong>Bam file:</strong> <a href="{}" download="{}"> {}</a>'.format(
-                    path_name_bam,
-                    os.path.basename(path_name_bam),
-                    os.path.basename(path_name_bam),
+                ref_map = ReferenceMap_Main.objects.get(
+                    reference=unique_id, sample=sample, run=run
                 )
-            )
-            data["bai_file_id"] = mark_safe(
-                '<strong>Bai file:</strong> <a href="{}" download="{}"> {}</a>'.format(
-                    path_name_bai,
-                    os.path.basename(path_name_bai),
-                    os.path.basename(path_name_bai),
-                )
-            )
-            data["vcf_file_id"] = mark_safe(
-                '<strong>Vcf file:</strong> <a href="{}" download="{}"> {}</a>'.format(
-                    path_name_vcf,
-                    os.path.basename(path_name_vcf),
-                    os.path.basename(path_name_vcf),
-                )
-            )
-            data["reference_id"] = mark_safe(
-                '<strong>Reference:</strong> <a href="{}" download="{}"> {}</a>'.format(
-                    path_name_reference,
-                    os.path.basename(path_name_reference),
-                    os.path.basename(path_name_reference),
-                )
-            )
-            data["reference_index_id"] = mark_safe(
-                '<strong>Ref. index:</strong> <a href="{}" download="{}"> {}</a>'.format(
-                    path_name_reference_index,
-                    os.path.basename(path_name_reference_index),
-                    os.path.basename(path_name_reference_index),
-                )
-            )
 
-            data["static_dir"] = run.static_dir
-            data["sample_name"] = sample_name
+                def remove_pre_static(path: str) -> str:
+                    cwd = os.getcwd()
+                    if path.startswith(cwd):
+                        path = path[len(cwd) :]
+
+                    path = path.replace(STATIC_ROOT, STATIC_URL)
+
+                    return path
+
+                #################################################
+                ### bam file
+                path_name_bam = remove_pre_static(
+                    ref_map.bam_file_path,
+                )
+                path_name_bai = remove_pre_static(
+                    ref_map.bai_file_path,
+                )
+                path_name_reference = remove_pre_static(
+                    ref_map.fasta_file_path,
+                )
+                path_name_reference_index = remove_pre_static(
+                    ref_map.fai_file_path,
+                )
+                path_name_vcf = remove_pre_static(ref_map.vcf)
+
+                data["is_ok"] = True
+                data["path_bam"] = mark_safe(request.build_absolute_uri(path_name_bam))
+
+                data["path_reference"] = mark_safe(
+                    request.build_absolute_uri(path_name_reference)
+                )
+                data["path_reference_index"] = mark_safe(
+                    request.build_absolute_uri(path_name_reference_index)
+                )
+                data["reference_name"] = reference
+
+                #### other files
+                data["bam_file_id"] = mark_safe(
+                    '<strong>Bam file:</strong> <a href="{}" download="{}"> {}</a>'.format(
+                        path_name_bam,
+                        os.path.basename(path_name_bam),
+                        os.path.basename(path_name_bam),
+                    )
+                )
+                data["bai_file_id"] = mark_safe(
+                    '<strong>Bai file:</strong> <a href="{}" download="{}"> {}</a>'.format(
+                        path_name_bai,
+                        os.path.basename(path_name_bai),
+                        os.path.basename(path_name_bai),
+                    )
+                )
+                data["vcf_file_id"] = mark_safe(
+                    '<strong>Vcf file:</strong> <a href="{}" download="{}"> {}</a>'.format(
+                        path_name_vcf,
+                        os.path.basename(path_name_vcf),
+                        os.path.basename(path_name_vcf),
+                    )
+                )
+                data["reference_id"] = mark_safe(
+                    '<strong>Reference:</strong> <a href="{}" download="{}"> {}</a>'.format(
+                        path_name_reference,
+                        os.path.basename(path_name_reference),
+                        os.path.basename(path_name_reference),
+                    )
+                )
+                data["reference_index_id"] = mark_safe(
+                    '<strong>Ref. index:</strong> <a href="{}" download="{}"> {}</a>'.format(
+                        path_name_reference_index,
+                        os.path.basename(path_name_reference_index),
+                        os.path.basename(path_name_reference_index),
+                    )
+                )
+
+                data["static_dir"] = run.static_dir
+                data["sample_name"] = sample_name
+            except Exception as e:
+
+                data["is_error"] = True
+                data["error_message"] = "Error in IGV_display: {}".format(e)
 
         return JsonResponse(data)

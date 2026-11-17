@@ -1934,6 +1934,7 @@ class ProcessControler(models.Model):
     PREFIX_PROJECT = "project_"
     PREFIX_DATASET = "dataset_"
     PREFIX_TELEVIR_PROJECT = "televir_project_"
+    PREFIX_TELEVIR_RUN_BATCH = "televir_run_batch_"
     PREFIX_TELEVIR_PROJECT_SAMPLE = "televir_project_sample"
     PREFIX_TELEVIR_REFERENCE_MAP = "televir_reference_map_"
     PREFIX_UPLOAD_FILES = "upload_files_"
@@ -1959,7 +1960,7 @@ class ProcessControler(models.Model):
         max_length=50, db_index=True, blank=True, null=True
     )  ## has the name of the process
     ## could be: sample_<pk>, project_sample_<pk>, project_<pk>
-    name_sge_id = models.CharField(
+    name_job_id = models.CharField(
         max_length=20, db_index=True, blank=True, null=True
     )  ## has the SGE id about this process
 
@@ -1994,16 +1995,19 @@ class ProcessControler(models.Model):
     def get_name_televir_reference_update(self, user_pk):
         return "televir_reference_update_{}".format(user_pk)
 
-    def get_name_televir_project(self, project_pk):
-        return "{}{}".format(ProcessControler.PREFIX_TELEVIR_PROJECT, project_pk)
+    def get_name_build_centrifuge_db(self, user_pk):
+        return "build_centrifuge_db_{}".format(user_pk)
 
-    def get_name_televir_project_sample(self, project_pk, sample_pk):
+    def get_name_build_kraken2_db(self, user_pk):
+        return "build_kraken2_db_{}".format(user_pk)
+
+    def get_name_televir_project_sample(self, batch_pk, sample_pk):
         return "{}{}_sample_{}".format(
-            ProcessControler.PREFIX_TELEVIR_PROJECT, project_pk, sample_pk
+            ProcessControler.PREFIX_TELEVIR_RUN_BATCH, batch_pk, sample_pk
         )
 
-    def get_name_televir_project_sample_metagenomics_run(self, sample_pk, leaf_pk):
-        return "{}_combined_metagen_{}_{}".format(
+    def get_name_televir_sample_mapping(self, sample_pk, leaf_pk):
+        return "{}_televir_mapping_{}_{}".format(
             ProcessControler.PREFIX_TELEVIR_PROJECT, sample_pk, leaf_pk
         )
 
@@ -2011,10 +2015,10 @@ class ProcessControler(models.Model):
         return "{}_televir_panel_map_{}_{}".format(
             ProcessControler.PREFIX_TELEVIR_PROJECT, sample_pk, leaf_pk
         )
-
-    def get_name_televir_project_sample_metagenomics(self, sample_pk):
-        return "{}_combined_metagen_{}".format(
-            ProcessControler.PREFIX_TELEVIR_PROJECT, sample_pk
+    
+    def get_name_televir_project_sample_control_map(self, sample_pk, leaf_pk):
+        return "{}_televir_control_map_{}_{}".format(
+            ProcessControler.PREFIX_TELEVIR_PROJECT, sample_pk, leaf_pk
         )
 
     def get_name_televir_project_sample_sort(self, sample_pk):
@@ -2073,11 +2077,6 @@ class ProcessControler(models.Model):
     def get_name_televir_project_merge_explify_external(self, user_pk):
         return "{}_report_merge_explify_EXT_{}".format(
             ProcessControler.PREFIX_TELEVIR_PROJECT, user_pk
-        )
-
-    def get_name_televir_run(self, project_pk, sample_pk, leaf_pk) -> str:
-        return "{}{}_sample_{}_leaf_{}".format(
-            ProcessControler.PREFIX_TELEVIR_PROJECT, project_pk, sample_pk, leaf_pk
         )
 
     def get_name_televir_map(self, reference_pk):

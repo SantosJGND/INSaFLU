@@ -19,15 +19,15 @@ from pathogen_identification.modules.object_classes import Remap_Target
 from pathogen_identification.modules.run_main import RunMainTree_class
 from pathogen_identification.utilities.televir_parameters import \
     TelevirParameters
-from pathogen_identification.utilities.update_DBs import (
+from pathogen_identification.utilities.update_DBs_tree import (
     Update_Assembly, Update_Classification, Update_Metagenomics, Update_Remap,
     Update_RunMain_Initial, Update_RunMain_Secondary, get_run_parents)
 from pathogen_identification.utilities.utilities_general import \
     simplify_name_lower
 from pathogen_identification.utilities.utilities_pipeline import (
     Parameter_DB_Utility, SoftwareTreeUtils, Utils_Manager)
-from pathogen_identification.utilities.utilities_views import (
-    ReportSorter, final_report_best_cov_by_accid)
+from pathogen_identification.utilities.utilities_views import \
+    run_reference_overlap_analysis
 from settings.constants_settings import ConstantsSettings as SettingsConstants
 from utils.process_SGE import ProcessSched
 
@@ -63,10 +63,6 @@ class PathogenIdentificationDeploymentCore:
             self.file_r2 = sample.sample.get_fastq_available(TypePath.MEDIA_ROOT, False)
         else:
             self.file_r2 = ""
-
-    @property
-    def username(self):
-        return self.sample.project.owner.username
 
     @property
     def user(self):
@@ -286,6 +282,10 @@ class PathogenIdentification_SingleDeployment(PathogenIdentificationDeploymentCo
         self.pipeline_index = pipeline_index
         self.pk = pk
         self.parameter_set = ParameterSet.objects.get(pk=pk)
+
+        if self.parameter_set.leaf is None:
+            raise Exception("Parameter set leaf is None")
+
         self.tree_makup = self.parameter_set.leaf.software_tree.global_index
 
     @property
@@ -301,8 +301,21 @@ class PathogenIdentification_SingleDeployment(PathogenIdentificationDeploymentCo
         software_tree_utils = SoftwareTreeUtils(self.project.owner, self.project)
 
         all_paths = software_tree_utils.get_all_technology_pipelines(pipeline_type=self.pipeline_type)
+        print("all_paths", all_paths)
 
-        self.run_params_db = all_paths.get(self.pipeline_index, None)
+        pipeline_tree = software_tree_utils.query_software_default_tree(global_index=self.tree_makup)
+        all_paths = pipeline_tree.get_all_graph_paths()
+        
+        if not all_paths:
+            print("No paths found in pipeline tree")
+            return False
+        converted_index = pipeline_tree.match_node_to_index(self.parameter_set.leaf)
+
+        print("pipeline_index", self.pipeline_index)
+        print("index", converted_index)
+
+        print("all_paths", all_paths)
+        self.run_params_db = all_paths.get(converted_index, None)
 
         if self.run_params_db is None:
             print("Pipeline index not found")
@@ -365,11 +378,11 @@ class Run_Main_from_Leaf:
         self.project = project
         self.combined_analysis = combined_analysis
         self.mapping_request = mapping_request
-        self.run_pk = run_pk
+        self._run_pk = run_pk
         self.pipeline_leaf = pipeline_leaf
         self.pipeline_tree = pipeline_tree
         ########################################
-        prefix = f"{simplify_name_lower(input_data.name)}_run{pipeline_leaf.index}"
+        prefix = f"{simplify_name_lower(input_data.name)}_r{pipeline_leaf.id_str}"
         self.date_submitted = datetime.datetime.now()
 
         self.technology = input_data.sample.get_type_technology()
@@ -405,6 +418,14 @@ class Run_Main_from_Leaf:
         )
 
         self.is_available = self.check_availability()
+
+    @property
+    def run_pk(self):
+        if self._run_pk is not None:
+            return self._run_pk
+        if self.container.run_engine.run_pk is not None:
+            return self.container.run_engine.run_pk
+        return None
 
     def get_status(self):
         return self.parameter_set.status
@@ -467,27 +488,32 @@ class Run_Main_from_Leaf:
             return False
 
         self.container.run_main_prep_dump_tables()
+        if self._run_pk is not None:
+            self.container.run_engine.run_pk = self._run_pk
+
+        if (
+            self.container.run_engine.run_type
+            == RunMainTree_class.RUN_TYPE_SCREENING
+        ):
+            self.container.run_engine.remap_params.manual_references_include = True
 
         try:
-
-            if self.run_pk is not None:
-                self.container.run_engine.run_pk = self.run_pk
-
-            if (
-                self.container.run_engine.run_type
-                == RunMainTree_class.RUN_TYPE_SCREENING
-            ):
-                self.container.run_engine.remap_params.manual_references_include = True
 
             if self.mapping_request:
                 self.container.run_engine.run_type = (
                     RunMainTree_class.RUN_TYPE_MAPPING_REQUEST
                 )
-
-                self.container.run_engine.metadata_tool.get_mapping_references(
-                    self.run_pk,
-                    max_accids=self.container.run_engine.remap_params.max_accids,
-                )
+                if (
+                    self.container.run_engine.run_type
+                    == RunMainTree_class.RUN_TYPE_COMBINED_MAPPING
+                ):
+                    self.container.run_engine.metadata_tool.get_mapping_references(
+                        self._run_pk,
+                        max_accids=self.container.run_engine.remap_params.max_accids,
+                    )
+                else:
+                    self.container.run_engine.metadata_tool.get_mapping_references(
+                        self._run_pk)
 
             if self.combined_analysis:
                 self.container.run_engine.run_type = (
@@ -507,56 +533,20 @@ class Run_Main_from_Leaf:
 
         return True
 
-    def set_run_process_running(self):
-        process_controler = ProcessControler()
-        process_SGE = ProcessSched()
-        process_SGE.set_process_controler(
-            self.user,
-            process_controler.get_name_televir_run(
-                self.project.pk,
-                self.sample.pk,
-                self.pipeline_leaf.pk,
-            ),
-            ProcessControler.FLAG_RUNNING,
-        )
-
-    def set_run_process_error(self):
-        process_controler = ProcessControler()
-        process_SGE = ProcessSched()
-        process_SGE.set_process_controler(
-            self.user,
-            process_controler.get_name_televir_run(
-                self.project.pk,
-                self.sample.pk,
-                self.pipeline_leaf.pk,
-            ),
-            ProcessControler.FLAG_ERROR,
-        )
-
-    def set_run_process_finished(self):
-        process_controler = ProcessControler()
-        process_SGE = ProcessSched()
-        process_SGE.set_process_controler(
-            self.user,
-            process_controler.get_name_televir_run(
-                self.project.pk,
-                self.sample.pk,
-                self.pipeline_leaf.pk,
-            ),
-            ProcessControler.FLAG_FINISHED,
-        )
-
     def Deploy_Parts(self):
         try:
 
             self.container.run_engine.Prep_deploy()
             self.container.run_engine.Run_QC()
-            db_updated = Update_RunMain_Initial(
+            db_updated, run_main = Update_RunMain_Initial(
                 self.container.run_engine, self.parameter_set
             )
-            self.register_running()
-            if not db_updated:
+            if not db_updated or run_main is None:
                 return False
+            
+            self.container.run_engine.update_run_main(run_main)
+            self.register_running()
+
         except Exception as e:
             print(traceback.format_exc())
             print(e)
@@ -646,32 +636,27 @@ class Run_Main_from_Leaf:
         return True
 
     def register_submission(self):
-        self.set_run_process_running()
         self.parameter_set.register_subprocess()
-        new_run = ParameterSet.objects.get(pk=self.pk)
-        new_run.register_subprocess()
-        print("registered_submission")
 
-        if self.run_pk:
-            run = RunMain.objects.get(pk=self.run_pk)
+        if self._run_pk:
+            run = RunMain.objects.get(pk=self._run_pk)
             run.status = RunMain.STATUS_PREP
             run.save()
 
     def register_running(self):
-        if self.run_pk:
-            run = RunMain.objects.get(pk=self.run_pk)
+        if self._run_pk:
+            run = RunMain.objects.get(pk=self._run_pk)
             run.status = RunMain.STATUS_RUNNING
             run.save()
 
     def register_error(self):
-        self.set_run_process_error()
 
         new_run = ParameterSet.objects.get(pk=self.pk)
         new_run.register_error()
 
         try:
-            if self.run_pk:
-                run = RunMain.objects.get(pk=self.run_pk)
+            if self._run_pk:
+                run = RunMain.objects.get(pk=self._run_pk)
                 run.status = RunMain.STATUS_ERROR
                 run.save()
             else:
@@ -683,51 +668,19 @@ class Run_Main_from_Leaf:
         self.container.delete_run()
 
     def run_reference_overlap_analysis(self):
-        final_reports = FinalReport.objects.filter(sample=self.sample).order_by(
-            "-coverage"
+
+        return run_reference_overlap_analysis(
+            self.sample, self.parameter_set
         )
-        #
-        report_layout_params = TelevirParameters.get_report_layout_params(
-            project_pk=self.parameter_set.project.pk
-        )
-
-        if final_reports.exists() is False:
-            return
-
-
-        runs = RunMain.objects.filter(parameter_set=self.parameter_set).exclude(run_type=RunMain.RUN_TYPE_STORAGE)
-        
-        for run in runs:
-
-            final_report = FinalReport.objects.filter(
-                sample=self.parameter_set.sample, run=run
-            ).order_by("-coverage")
-            #
-            report_sorter = ReportSorter(
-                self.parameter_set.sample, final_report, report_layout_params
-            )
-            report_sorter.sort_reports_save()
-            report_sorter.reports_aggregate_register(report_layout_params, run)
-
-        final_reports = FinalReport.objects.filter(
-            sample=self.parameter_set.sample,
-        ).order_by("-coverage")
-
-        final_reports = final_report_best_cov_by_accid(final_reports)
-        report_sorter = ReportSorter(
-            self.parameter_set.sample, final_reports, report_layout_params
-        )
-        report_sorter.sort_reports_save()
-        report_sorter.reports_aggregate_register(report_layout_params)
 
     def register_completion(self):
-        self.set_run_process_finished()
+
         self.run_reference_overlap_analysis()
         new_run = ParameterSet.objects.get(pk=self.pk)
         new_run.register_finished()
 
-        if self.run_pk:
-            run = RunMain.objects.get(pk=self.run_pk)
+        if self._run_pk:
+            run = RunMain.objects.get(pk=self._run_pk)
             run.status = RunMain.STATUS_FINISHED
             run.save()
 
@@ -736,7 +689,7 @@ class Run_Main_from_Leaf:
         self.project.save()
 
     def Submit(self):
-        if not self.check_submission() and not self.check_processed():
+        if not self.check_processed():
             self.register_submission()
 
             try:

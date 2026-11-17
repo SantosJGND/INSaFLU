@@ -99,16 +99,20 @@ class PipelineTree:
         df = parameter_util.retrace_from_leaf(node)
         df = df.dropna(subset = 'node_type')
         new_df = []
+
         module = None
         software = None
         parameter = None
+
         for _idx, row in df.iterrows():
             if row.node_type == "module":
                 module = row['name']
-                software = row['value']
+                
             elif row.node_type == "param":
                 parameter = row['value']
+                software = row['name'].replace("_ARGS","").lower()
                 new_df.append((module, software, parameter))
+
         new_df = pd.DataFrame(new_df, columns=["module", "software", "value"])
         local_paths = self.get_all_graph_paths()
         
@@ -119,9 +123,11 @@ class PipelineTree:
                 path_df.value
             ) == set(new_df.value):
                 return leaf_index
+            
         raise ValueError("Node not found in index")
 
     def __eq__(self, other):
+        from pathogen_identification.utilities.utilities_general import differences_tuple_list
         diff_nodes = differences_tuple_list(self.nodes, other.nodes)
         diff_edges = differences_tuple_list(self.edges, other.edges)
 
@@ -707,6 +713,8 @@ class PipelineTree:
             ]
             for z in list(set([x[0] for x in self.nodes_compress]))
         }
+
+        print(self.compress_dag_dict)
 
 
 
@@ -1792,13 +1800,6 @@ class Parameter_DB_Utility:
                 software__type_of_use__in=Software.TELEVIR_PROJECT_TYPES,
             )
 
-        #parameters_available = Parameter.objects.filter(
-        #    software__in=software_available,
-        #).distinct()
-
-        #software_table = pd.DataFrame(software_available.values())
-        #parameters_table = pd.DataFrame(parameters_available.values())
-
         return parameters_available
     
 
@@ -1913,12 +1914,11 @@ class Parameter_DB_Utility:
             else:
                 root = node
 
-
-        if root == None:
-            raise ValueError("Root node not found")
+        #if root == None:
+        #    raise ValueError("Root node not found")
 
         from collections import deque
-        queue = deque([root])
+        queue = deque([root]) if root else deque()
         index = 0
         node_index = {}
 
@@ -1961,10 +1961,10 @@ class Parameter_DB_Utility:
         leaves = []
         for node in tree_nodes:
             if node.parent:
-                edges.append((node.parent.index, node.index))
-            nodes.append((node.index, (node.name, node.value, node.node_type)))
+                edges.append((node.parent.index, node.tree_index))
+            nodes.append((node.tree_index, (node.name, node.value, node.node_type)))
             if node.node_place == 1:
-                leaves.append(node.index)
+                leaves.append(node.tree_index)
 
         return PipelineTree(
             technology=software_tree.technology,
@@ -1978,9 +1978,9 @@ class Parameter_DB_Utility:
         """ """
 
         parent = leaf.parent
-        path = [(leaf.index, leaf.name, leaf.value, leaf.node_type)]
+        path = [(leaf.tree_index, leaf.name, leaf.value, leaf.node_type)]
         while parent is not None:
-            path.append((parent.index, parent.name, parent.value, parent.node_type))
+            path.append((parent.tree_index, parent.name, parent.value, parent.node_type))
             parent = parent.parent
 
         path = path[::-1]
@@ -2177,7 +2177,7 @@ class Utils_Manager:
 
         utility_repository.dump_tables(logdir)
 
-    def get_leaf_parameters(self, parameter_leaf: SoftwareTreeNode) -> pd.DataFrame:
+    def generate_leaf_parameters(self, parameter_leaf: SoftwareTreeNode) -> pd.DataFrame:
         """ """
         pipeline_tree = self.parameter_util.convert_softwaretree_to_pipeline_tree(
             parameter_leaf.software_tree
@@ -2190,7 +2190,43 @@ class Utils_Manager:
 
         all_paths = pipeline_tree.get_all_graph_paths()
 
+        self.register_leaf_parameters(parameter_leaf, all_paths[parameter_leaf_index])
+
         return all_paths[parameter_leaf_index]
+    
+    def register_leaf_parameters(self, parameter_leaf: SoftwareTreeNode, parameters_df: pd.DataFrame):
+        """ """
+        from pathogen_identification.models import LeafParameter
+
+        if LeafParameter.objects.filter(leaf=parameter_leaf).exists():
+            self.logger.warning(f"Leaf {parameter_leaf} already has parameters registered. Skipping registration.")
+            return 
+        for _, row in parameters_df.iterrows():
+            LeafParameter.objects.create(
+                leaf=parameter_leaf,
+                module = row['module'],
+                software_name = row['software'],
+                parameter_name = row['parameter'],
+                parameter_value = row['value'],
+            )
+
+    def get_leaf_parameters(self, parameter_leaf: SoftwareTreeNode) -> pd.DataFrame:
+        """ """
+        from pathogen_identification.models import LeafParameter
+
+        if not LeafParameter.objects.filter(leaf=parameter_leaf).exists():
+            self.generate_leaf_parameters(parameter_leaf)
+
+        leaf_parameters = LeafParameter.objects.filter(leaf=parameter_leaf)
+
+        parameters_df = pd.DataFrame(leaf_parameters.values('module', 'software_name', 'parameter_name', 'parameter_value')).rename(
+            columns={
+                'parameter_name': 'parameter',
+                'parameter_value': 'value'
+            }
+        )
+
+        return parameters_df
 
     def get_parameterset_leaves(
         self, parameterset: ParameterSet, pipeline_tree: PipelineTree
@@ -2233,7 +2269,7 @@ class Utils_Manager:
 
     def sample_nodes_check_no_repeats(
         self, submission_dict: dict, available_path_nodes: dict, project: Projects
-    ):
+    ) -> Dict[PIProject_Sample, List[SoftwareTreeNode]]:
         utils = Utils_Manager()
         ### SUBMISSION
         runs_to_deploy = 0
@@ -2330,7 +2366,6 @@ class Utils_Manager:
         )
 
         reduced_tree.software_tree_pk = tree.software_tree_pk
-        #reduced_tree.index_to_pk = tree.index_to_pk
 
         return reduced_tree
 
@@ -2547,18 +2582,15 @@ class SoftwareTreeUtils:
         leaves = []
         node_dag_dict = {}
         root = None
+
         for node in tree_nodes:
             if node.parent is not None:
                 node_dag_dict.setdefault(node.parent.pk, []).append(node) 
             else:
                 root = node
-
-
-        if root == None:
-            raise ValueError("Root node not found")
-
+        
         from collections import deque
-        queue = deque([root])
+        queue = deque([root]) if root else deque()
         index = 0
         node_index = {}
 
@@ -2578,12 +2610,6 @@ class SoftwareTreeUtils:
                 edges.append((
                     node_index[parent], node_index[child.pk]
                 ))
-
-        #    if node.parent:
-        #        edges.append((node.parent.index, node.index))
-        #    nodes.append((node.index, (node.name, node.value, node.node_type)))
-        #    if node.node_place == SoftwareTreeNode.LEAF_node:
-        #        leaves.append(node.index)
 
         pipeline_tree = PipelineTree(
             technology=software_tree.technology,
@@ -2668,6 +2694,7 @@ class SoftwareTreeUtils:
                     node_type=tree_node[1][2],
                     parent=software_parent,
                     node_place=SoftwareTreeNode.LEAF_node if is_leaf else SoftwareTreeNode.INTERNAL_node,
+                    tree_index = software_tree.new_leaf_index
                 )
                 software_node.save()
             
@@ -2738,6 +2765,7 @@ class SoftwareTreeUtils:
                         node_type=node[2],
                         parent=parent_node,
                         node_place=is_leaf,
+                        tree_index = software_tree.new_leaf_index
                     )
                     with transaction.atomic():
                         tree_node.save()
@@ -2891,11 +2919,6 @@ class SoftwareTreeUtils:
 
         submission_dict = {sample: []}
 
-        #available_path_nodes = self.get_sample_pathnodes(
-        #    screening=False,
-        #    mapping_only=True,
-        #)
-
         available_path_nodes = self.query_available_pathnodes(
             pipeline_type=SoftwareTree.PIPELINE_TYPE_MAPPING
         )
@@ -2906,10 +2929,6 @@ class SoftwareTreeUtils:
             )
         )
 
-        # samples_leaf_dict = {
-        #    sample: available_path_nodes.values() for sample in submission_dict.keys()
-        # }
-
         return clean_samples_leaf_dict
 
     def check_runs_to_submit_screening_sample(self, sample: PIProject_Sample) -> dict:
@@ -2918,11 +2937,6 @@ class SoftwareTreeUtils:
         """
 
         submission_dict = {sample: []}
-
-        #available_path_nodes = self.get_sample_pathnodes(
-        #    screening=True,
-        #    mapping_only=False,
-        #)
 
         available_path_nodes= self.query_available_pathnodes(
             pipeline_type=SoftwareTree.PIPELINE_TYPE_SCREENING,
@@ -2962,7 +2976,7 @@ class SoftwareTreeUtils:
 
         return clean_samples_leaf_dict, workflow_deployed_dict
 
-    def check_and_set_runs_to_deploy_sample(self, sample: PIProject_Sample) -> dict:
+    def check_and_set_runs_to_deploy_sample(self, sample: PIProject_Sample) -> Dict[PIProject_Sample, List[SoftwareTreeNode]]:
         """
         Check if there are runs to run. sets to queue if there are.
         """
@@ -2986,7 +3000,7 @@ class SoftwareTreeUtils:
         available_path_nodes = self.query_available_pathnodes(
             pipeline_type=pipeline_type
         )
-        print(available_path_nodes)
+
         trees = list(set(leaf.software_tree for leaf in available_path_nodes.values()))
         software_tree_matched_paths = {
             stree: {
@@ -3014,16 +3028,6 @@ class SoftwareTreeUtils:
         }
 
         return all_paths
-
-    def generate_software_tree(self, tree_makeup: int):
-        """
-        Generate a software tree for a technology and a tree makeup
-        """
-
-        if self.check_default_software_tree_exists(global_index=tree_makeup):
-            return self.query_software_default_tree(global_index=tree_makeup)
-        else:
-            raise Exception("No software tree for technology")
 
     def generate_software_tree_register(self, local_tree: PipelineTree):
         """

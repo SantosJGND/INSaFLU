@@ -63,7 +63,6 @@ from pathogen_identification.tables import (AddedReferenceTable,
                                             CompoundReferenceScore,
                                             ContigTable, ProjectTable,
                                             RawReferenceTable,
-                                            RawReferenceTable_Basic,
                                             ReferenceSourceFileTable,
                                             ReferenceSourceTable, RunMainTable,
                                             RunMappingTable, SampleTableOne,
@@ -85,12 +84,13 @@ from pathogen_identification.utilities.utilities_pipeline import (
     Parameter_DB_Utility, SoftwareTreeUtils)
 from pathogen_identification.utilities.utilities_views import (
     EmptyRemapMain, RawReferenceUtils, ReportAggregateEmpty, ReportList,
-    RunMainWrapper, SampleReadsRetrieve, recover_assembly_contigs)
+    RunMainWrapper, SampleReadsRetrieve, SampleReferenceManager,
+    recover_assembly_contigs)
 from settings.constants_settings import ConstantsSettings as CS
 from utils.process_SGE import ProcessSched
 from utils.software import Software
 from utils.support_django_template import get_link_for_dropdown_item
-from utils.utils import ShowInfoMainPage, Utils, PathUtils
+from utils.utils import PathUtils, ShowInfoMainPage, Utils
 
 
 def remove_pre_static(path: str) -> str:
@@ -431,7 +431,7 @@ class PathId_ProjectsView(BaseBreadcrumbMixin, LoginRequiredMixin, ListView):
         context = super(PathId_ProjectsView, self).get_context_data(**kwargs)
         tag_search = "search_projects"
         query_set = Projects.objects.filter(
-            owner__id=self.request.user.id, is_deleted=False
+            owner__id=self.request.user.id, is_deleted=False, is_profile= False
         ).order_by("-creation_date")
 
         if self.request.GET.get(tag_search) != None and self.request.GET.get(
@@ -946,6 +946,7 @@ class MainPage(BaseBreadcrumbMixin, LoginRequiredMixin, generic.CreateView):
             query_string = process_query_string(self.request.GET.get(tag_search))
             query_set = query_set.filter(Q(name__icontains=query_string)).distinct()
 
+        # Precompute per-sample running/queued/finished run counts to avoid N+1 queries
         samples = SampleTableOne(query_set)
 
         ### set the check_box
@@ -1048,32 +1049,32 @@ def teleflu_node_info(node, params_df, node_pk):
     }
 
     for pipeline_step in CS.vect_pipeline_televir_workflows_display:
+
         acronym = [x[0] for x in pipeline_step.split(" ")]
         acronym = "".join(acronym).upper()
         params = params_df[params_df.module == pipeline_step].to_dict("records")
-        if params:  # if there are parameters for this module
-            software = params[0].get("software")
+
+        for block in params:  # if there are parameters for this module
+            software = block.get("software")
             software = software.split("_")[0]
 
-            params = params[0].get("value")
-            params = excise_paths_leaf_last(params)
+            params = block.get("value")
+            params = excise_paths_leaf_last(block.get("value"))
             params = f"{software} {params}"
-        else:
-            params = ""
 
-        node_info["modules"].append(
-            {
-                "module": pipeline_step,
-                "parameters": params,
-                "short_name": acronym,
-                "available": (
-                    "software_on"
-                    if pipeline_step in params_df.module.values
-                    else "software_off"
-                ),
-            }
-        )
-
+            node_info["modules"].append(
+                {
+                    "module": pipeline_step,
+                    "parameters": params,
+                    "short_name": acronym,
+                    "available": (
+                        "software_on"
+                        if pipeline_step in params_df.module.values
+                        else "software_off"
+                    ),
+                }
+            )
+    
     return node_info
 
 
@@ -1235,7 +1236,7 @@ class TelefluMappingIGV(BaseBreadcrumbMixin, LoginRequiredMixin, generic.Templat
         self.kwargs["teleflu_project_name"] = (
             f"Focus: {teleflu_mapping.teleflu_project.raw_reference.description_first}"
         )
-        self.kwargs["mapping_id"] = f"IGV Mapping Workflow {teleflu_mapping.leaf.index}"
+        self.kwargs["mapping_id"] = f"IGV Mapping Workflow {teleflu_mapping.leaf.id_str}"
 
     def get_context_data(self, **kwargs):
         context = super(TelefluMappingIGV, self).get_context_data(**kwargs)
@@ -1284,7 +1285,7 @@ class TelefluMappingIGV(BaseBreadcrumbMixin, LoginRequiredMixin, generic.Templat
 
         for sample in televir_project_samples:
             ref_select = filter_reference_maps_select(
-                sample, teleflu_mapping.leaf.index, accid_list_simple
+                sample, teleflu_mapping.leaf.pk, accid_list_simple
             )
             if ref_select is None:
                 continue
@@ -1320,7 +1321,7 @@ class TelefluMappingIGV(BaseBreadcrumbMixin, LoginRequiredMixin, generic.Templat
         context["teleflu_project_name"] = (
             f"Focus: {teleflu_project.raw_reference.description_first}"
         )
-        context["mapping_id"] = f"IGV Mapping Workflow {teleflu_mapping.leaf.index}"
+        context["mapping_id"] = f"IGV Mapping Workflow {teleflu_mapping.leaf.id_str}"
 
         return context
 
@@ -1361,7 +1362,7 @@ def get_mapping_bams_zip(request, pk):
 
     for sample in televir_project_samples:
         ref_select = filter_reference_maps_select(
-            sample, teleflu_mapping.leaf.index, accid_list_simple
+            sample, teleflu_mapping.leaf.pk, accid_list_simple
         )
         if ref_select is None:
             continue
@@ -1551,7 +1552,7 @@ class Sample_main(BaseBreadcrumbMixin, LoginRequiredMixin, generic.CreateView):
                 run_type__in=[
                     RunMain.RUN_TYPE_PIPELINE,
                 ],
-            ).order_by("-parameter_set__leaf__index")
+            ).order_by("-parameter_set__leaf__tree_index")
 
             run_mapping = RunMain.objects.filter(
                 sample__pk=sample_pk,
@@ -1563,11 +1564,7 @@ class Sample_main(BaseBreadcrumbMixin, LoginRequiredMixin, generic.CreateView):
                     ParameterSet.STATUS_RUNNING,
                     ParameterSet.STATUS_ERROR,
                 ],
-                run_type__in=[
-                    RunMain.RUN_TYPE_MAP_REQUEST,
-                    RunMain.RUN_TYPE_COMBINED_MAPPING,
-                    RunMain.RUN_TYPE_PANEL_MAPPING,
-                ],
+                run_type__in=RunMain.RUN_TYPE_MAPPINGS,
                 status__in=[
                     RunMain.STATUS_DEFAULT,
                     RunMain.STATUS_RUNNING,
@@ -1664,24 +1661,38 @@ def inject_references_filter(request, max_references: int = 30):
         panel = ReferencePanel.objects.get(pk=panel_id)
 
     references = []
-
     if request.GET.get(tag_add_reference) is not None:
         if table_type == "teleflu_reference":
             request_tag = request.GET.get(tag_add_reference)
-            possible_accid = request_tag.split(".")[0]
+            if request_tag == "":
+                return JsonResponse(inject_references([], request, table_type=table_type))
+
+            possible_accid = request_tag.split(".", 1)[0]
+
+            # Build the search ORs, then apply required AND filters (project + exclude)
+            search_q = (
+                Q(accid__icontains=request_tag)
+                | Q(accid__icontains=possible_accid)
+                | Q(taxid__icontains=request_tag)
+                | Q(description__icontains=request_tag)
+            )
+
             try:
-                references = RawReference.objects.filter(
-                    Q(accid__icontains=request.GET.get(tag_add_reference))
-                    | Q(accid__icontains=possible_accid)
-                    | Q(description__icontains=request.GET.get(tag_add_reference))
-                    & ~Q(description__in=["root", "NA"])
-                    & Q(run__project__pk=project_id)
-                ).distinct("accid")
-
+                # apply project filter and description exclusion after the OR group
+                # limit columns/rows to reduce DB load and avoid evaluating the whole queryset
+                raw_qs = (
+                    RawReference.objects.filter(search_q, run__project__pk=project_id)
+                    .exclude(description__in=["root", "NA"])
+                    .order_by("accid")  # required by Postgres when using distinct('accid')
+                    .distinct("accid")
+                )[: max_references]
             except Exception as e:
-                print(e)
 
-            if references.count() == 0:
+                logging.getLogger(__name__).exception("RawReference search failed")
+                raw_qs = RawReference.objects.none()
+
+            # use exists() which is cheaper than count() for presence check
+            if not raw_qs.exists():
                 references = []
             else:
                 reference_utils = RawReferenceUtils(project=project)
@@ -1699,32 +1710,18 @@ def inject_references_filter(request, max_references: int = 30):
                 ).values_list("taxid", flat=True)
 
             try:
+
+                search_q = (
+                    Q(reference_source__description__icontains=request.GET.get(tag_add_reference))
+                    | Q(reference_source__accid__icontains=request.GET.get(tag_add_reference))
+                    | Q(reference_source__taxid__taxid__icontains=request.GET.get(tag_add_reference))
+                    | Q(reference_source_file__file__icontains=request.GET.get(tag_add_reference),
+                        reference_source_file__owner__in=[None, user]  # allow public references only
+                ))
+
                 references = (
                     ReferenceSourceFileMap.objects.filter(
-                        Q(
-                            reference_source__description__icontains=request.GET.get(
-                                tag_add_reference
-                            )
-                        )
-                        | Q(
-                            reference_source__accid__icontains=request.GET.get(
-                                tag_add_reference
-                            )
-                        )
-                        | Q(
-                            reference_source__taxid__taxid__icontains=request.GET.get(
-                                tag_add_reference
-                            )
-                        )
-                        | Q(
-                            reference_source_file__file__icontains=request.GET.get(
-                                tag_add_reference
-                            ),
-                            reference_source_file__owner__in=[
-                                None,
-                                user,
-                            ],  # allow public references only
-                        )
+                        search_q
                     )
                     .exclude(
                         reference_source__taxid__taxid__in=existing_reference_taxids
@@ -1976,7 +1973,9 @@ class ReferenceManagement(BaseBreadcrumbMixin, LoginRequiredMixin, generic.Creat
         context = super().get_context_data(**kwargs)
         user = self.request.user
 
-        tag_search = "search_references"
+        tag_search_name = "search_references_name"
+        tag_search_accid = "search_references_accid"
+        tag_search_taxid = "search_references_taxid"
 
         references = (
             ReferenceSourceFileMap.objects.filter(
@@ -1987,40 +1986,34 @@ class ReferenceManagement(BaseBreadcrumbMixin, LoginRequiredMixin, generic.Creat
             .distinct("reference_source__description", "reference_source__accid")
         )
 
-        if self.request.GET.get(tag_search) != None and self.request.GET.get(
-            tag_search
-        ):
-            query_string = self.request.GET.get(tag_search)
-            query_string = process_query_string(query_string)
+
+        search_queries = []
+        if self.request.GET.get(tag_search_name):
+            search_queries.append(
+                Q(reference_source__description__icontains=process_query_string(self.request.GET.get(tag_search_name))),
+            )
+        if self.request.GET.get(tag_search_accid):
+            search_queries.append(
+                Q(reference_source__accid__icontains=process_query_string(self.request.GET.get(tag_search_accid))),
+            )
+        if self.request.GET.get(tag_search_taxid):
+            search_queries.append(
+                Q(reference_source__taxid__taxid=process_query_string(self.request.GET.get(tag_search_taxid))),
+            )
+        
+        if search_queries:
+            search_queries = Q(*search_queries, _connector=Q.OR)
 
             references = (
                 ReferenceSourceFileMap.objects.filter(
+                    search_queries,
                     Q(reference_source_file__owner__id=user.pk)
                     | Q(reference_source_file__owner=None)
                 )
                 .order_by("reference_source__description", "reference_source__accid")
                 .distinct("reference_source__description", "reference_source__accid")
             )
-
-            references = references.filter(
-                Q(
-                    reference_source__description__icontains=self.request.GET.get(
-                        tag_search
-                    )
-                )
-                | Q(reference_source__accid__icontains=query_string)
-                | Q(
-                    reference_source__taxid__taxid__icontains=self.request.GET.get(
-                        tag_search
-                    )
-                )
-                | Q(
-                    reference_source_file__file__icontains=self.request.GET.get(
-                        tag_search
-                    )
-                )
-            )
-
+        
         summary = {
             "total": references.count(),
             "accession_id": references.values_list("reference_source__accid", flat=True)
@@ -2065,6 +2058,7 @@ class ReferenceManagement(BaseBreadcrumbMixin, LoginRequiredMixin, generic.Creat
 
 
 def check_metadata_table_clean(metadata_table_file) -> Optional[pd.DataFrame]:
+
     """
     check metadata table
     """
@@ -2118,7 +2112,7 @@ class UploadReferencePanel(
     def crumbs(self):
         return [
             ("References Index", reverse("references-index")),
-            ("Manage Project References", "televir_reference_files"),
+            ("Manage Project References", reverse("televir_reference_files")),
             ("Upload Reference Panel", ""),
         ]
 
@@ -2662,7 +2656,7 @@ class Sample_detail(BaseBreadcrumbMixin, LoginRequiredMixin, generic.CreateView)
 
         self.kwargs["sample_name"] = sample.sample.name
         self.kwargs["project_name"] = sample.project.name
-        self.kwargs["run_name"] = run_main_pipeline.parameter_set.leaf.index
+        self.kwargs["run_name"] = run_main_pipeline.parameter_set.leaf.id_str
 
     def get_context_data(self, **kwargs):
         project_pk = int(self.kwargs["pk1"])
@@ -2709,32 +2703,24 @@ class Sample_detail(BaseBreadcrumbMixin, LoginRequiredMixin, generic.CreateView)
             messages.error(self.request, "Run parameters do not exist")
             raise Http404
         
-        if run_main_pipeline.parameter_set.leaf.index is None:
+        if run_main_pipeline.parameter_set.leaf.tree_index is None:
             messages.error(self.request, "Run parameters do not exist")
             raise Http404
 
-        run_name = run_main_pipeline.parameter_set.leaf.index
+        run_name = run_main_pipeline.parameter_set.leaf.id_str
         sample_main = run_main_pipeline.sample
         #
         is_classification = run_main_pipeline.run_type == RunMain.RUN_TYPE_PIPELINE
-        #
         ########
 
         ########
-        remapping_performed = True
-        if run_main_pipeline.run_type == RunMain.RUN_TYPE_PIPELINE:
-            parameter_utils = Parameter_DB_Utility()
-            remapping_performed = parameter_utils.check_parameter_set_contains_module(
-                run_main_pipeline.parameter_set.leaf, CS.PIPELINE_NAME_remapping
-            )
+        parameter_utils = Parameter_DB_Utility()
+        remapping_performed = parameter_utils.check_parameter_set_contains_module(
+            run_main_pipeline.parameter_set.leaf, CS.PIPELINE_NAME_remapping
+        )
 
-        if is_classification is True:
-            raw_references = run_main_pipeline.references_sorted()
-            raw_reference_table = RawReferenceTable(raw_references)
-
-        else:
-            raw_references = run_main_pipeline.references_sorted(mapping_only=True)
-            raw_reference_table = RawReferenceTable_Basic(raw_references)
+        raw_references = run_main_pipeline.references_sorted(mapping_only = not is_classification)
+        raw_reference_table = RawReferenceTable(raw_references)
 
         from pathogen_identification.models import (ClassifierOutput,
                                                     ClassifierOutputFile)
@@ -2746,12 +2732,10 @@ class Sample_detail(BaseBreadcrumbMixin, LoginRequiredMixin, generic.CreateView)
         }
         
 
-
         #####
         run_detail = RunDetail.objects.get(sample=sample_main, run=run_main_pipeline)
         #
-        run_qc = TelevirRunQC.objects.filter(run=run_main_pipeline)
-        #
+        from pathogen_identification.models import TelevirRunQcStack
         from pathogen_identification.utilities.utilities_pipeline import \
             Utils_Manager
 
@@ -2759,38 +2743,7 @@ class Sample_detail(BaseBreadcrumbMixin, LoginRequiredMixin, generic.CreateView)
         params_df = utils_manager.get_leaf_parameters(
             run_main_pipeline.parameter_set.leaf
         )
-
-        qc_reports = [
-            RunQC_report(
-                performed=run_qc.performed,
-                method=run_qc.method,
-                args=run_qc.args,
-                input_reads=run_qc.input_reads,
-                output_reads=run_qc.output_reads,
-                output_reads_percent=run_qc.output_reads_percent,
-            )
-            for run_qc in run_qc
-        ]
-
-        if run_qc.exists() is False:
-            qc_reports = [
-                RunQC_report(
-                    performed=False,
-                    method="None",
-                    args="None",
-                    input_reads=run_detail.input,
-                    output_reads=run_detail.input,
-                    output_reads_percent="1",
-                )
-            ]
-
-        output_reads = int(qc_reports[-1].output_reads.replace(",", ""))
-        output_reads_percent = (
-            output_reads / int(qc_reports[0].input_reads.replace(",", "")) * 100
-        )
-        output_reads = f"{output_reads:,}"
-        output_reads_percent = f"{output_reads_percent:.2f}"
-
+        run_qc = TelevirRunQcStack.objects.get(run=run_main_pipeline)
         #
         try:
             run_assembly = RunAssembly.objects.get(
@@ -2828,8 +2781,25 @@ class Sample_detail(BaseBreadcrumbMixin, LoginRequiredMixin, generic.CreateView)
         )
 
         sorted_reports = {
-            report_group: ReportList(list(report_group.reports.all())).set_private_reads(report_group).sort_group_by_private_reads()
+            report_group: ReportList(list(report_group.reports.all())).fetch_report_data(report_group).sort_group_by_private_reads()
             for report_group in report_groups
+        }
+
+        reported_taxa = {
+            report_group: report_group.main_species for report_group in report_groups
+        }
+
+        # group reports by main species and sort by private reads availability
+        report_taxa = {
+            species: {
+                "report_groups": {
+                    rg: sorted_reports[rg] for rg in report_groups if rg.main_species == species
+                },
+                "total_private_counts": sum(
+                    rg.private_counts_safe for rg in report_groups if rg.main_species == species
+                )
+                }
+            for species in set(reported_taxa.values())
         }
 
         private_reads_available = any(
@@ -2855,7 +2825,6 @@ class Sample_detail(BaseBreadcrumbMixin, LoginRequiredMixin, generic.CreateView)
         )
 
         ### Reads Processing
-        # ret = SampleReadsRetrieve(sample)
         sample_retrieve = SampleReadsRetrieve(sample_main.sample)
         parameter_set = run_main_pipeline.parameter_set
         
@@ -2883,9 +2852,9 @@ class Sample_detail(BaseBreadcrumbMixin, LoginRequiredMixin, generic.CreateView)
             "sample": sample_name,
             "run_main": run_main_pipeline,
             "run_detail": run_detail,
-            "output_reads": output_reads,
-            "output_reads_percent": output_reads_percent,
-            "qc_reports": qc_reports,
+            "output_reads": run_qc.output_reads_str,
+            "output_reads_percent": run_qc.output_reads_percent_str,
+            "qc_reports": run_qc.reports,
             "assembly": run_assembly,
             "contig_classification": contig_classification,
             "read_classification": read_classification,
@@ -2901,6 +2870,7 @@ class Sample_detail(BaseBreadcrumbMixin, LoginRequiredMixin, generic.CreateView)
             "in_control": True,  # has_controlled_flag,
             "report_list": sorted_reports,
             "data_exists": True if not run_main_pipeline.data_deleted else False,
+            "missing_references": run_remap.missing_log_exists,
             "excluded_exist": excluded_reports_exist,
             "empty_reports": empty_reports,
             "error_rate_available": latest_report_aggregate.error_rate_available,
@@ -2923,7 +2893,7 @@ class Sample_detail(BaseBreadcrumbMixin, LoginRequiredMixin, generic.CreateView)
         context["files"] = {}
         # 1. parameters
         params_file_path = run_main_pipeline.params_file_path
-        params_df.drop(columns=["leaves"]).to_csv(
+        params_df.to_csv(
             params_file_path, index=False, sep="\t", header=True
         )
         if os.path.exists(params_file_path):
@@ -3032,28 +3002,19 @@ class Sample_ReportCombined(LoginRequiredMixin, generic.CreateView):
             sample=sample, run=None
         ).order_by("-date_created").first()
 
-        report_groups = ReportGroup.objects.filter(
-            aggregator=latest_report_aggregate
-        )
-
-        sorted_reports = {
-            report_group: ReportList(list(report_group.reports.all())).set_private_reads(report_group).sort_group_by_private_reads()
-            for report_group in report_groups
-        }
-
-        private_reads_available = any(
-            report_group.private_reads_available for report_group in report_groups
-        )
-
         if latest_report_aggregate is None:
             latest_report_aggregate = ReportAggregateEmpty()    
 
-        clade_heatmap_json = json.dumps(latest_report_aggregate.overlap_heatmap_json) if latest_report_aggregate.overlap_heatmap_path else None
+        clade_heatmap_json = latest_report_aggregate.clade_heatmap_json
+        report_taxa = SampleReferenceManager.aggregate_report_taxa(sample)
+
+        private_reads_available = latest_report_aggregate.private_reads_available
 
         #### graph
         graph_progress = TreeProgressGraph(sample)
-        # graph_progress.generate_graph()
+        # 
         graph_json, graph_id = graph_progress.get_graph_data()
+
         ####
         runs = latest_report_aggregate.runs.all()
         runs_pipeline = runs.filter(run_type=RunMain.RUN_TYPE_PIPELINE)
@@ -3067,7 +3028,7 @@ class Sample_ReportCombined(LoginRequiredMixin, generic.CreateView):
             "nav_project": True,
             "graph_json": graph_json,
             "sort_performed": latest_report_aggregate.sort_performed,
-            "groups_count": len(sorted_reports),
+            "groups_count": latest_report_aggregate.report_groups.count(),
             "min_shared_reads": round(
                 latest_report_aggregate.shared_proportion_threshold * 100, 2
             ),
@@ -3079,7 +3040,7 @@ class Sample_ReportCombined(LoginRequiredMixin, generic.CreateView):
             "tree_plot_path": latest_report_aggregate.tree_plot_path,
             "project_index": project_pk,
             "sample_index": sample_pk,
-            "report_list": sorted_reports,
+            "report_list": report_taxa,
             "runs_pipeline": runs_pipeline,
             "runs_mapping": runs_mapping,
             "runs_number": runs_exist,
@@ -3158,7 +3119,7 @@ class Scaffold_Remap(BaseBreadcrumbMixin, LoginRequiredMixin, generic.CreateView
 
         self.kwargs["sample_name"] = sample.sample.name
         self.kwargs["project_name"] = sample.project.name
-        self.kwargs["run_name"] = run_main_pipeline.parameter_set.leaf.index
+        self.kwargs["run_name"] = run_main_pipeline.parameter_set.leaf.id_str
 
     def get_context_data(self, **kwargs):
         """"""

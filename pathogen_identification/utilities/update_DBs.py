@@ -26,6 +26,9 @@ from pathogen_identification.modules.run_main import RunEngine_class
 
 def summarize_description(description, max_length=100):
 
+    if description is None:
+        return ""
+
     if len(description) > max_length:
         return description[:max_length]
 
@@ -87,11 +90,9 @@ def Update_project(project_directory_path, user: str = "admin"):
         )
 
     except Projects.DoesNotExist:
-        print("project_name: ", project_name)
         project = Projects(
             name=project_name,
             full_path=project_directory_path,
-            project_type=Projects.INHOUSE,
             created_by=user,
         )
         project.save()
@@ -275,6 +276,40 @@ def Update_Classification(
         print(f"failed to update sample {run_class.sample_name}")
         return False
 
+def Update_Metagenomics_Classification(
+    run_class: RunEngine_class, parameter_set: ParameterSet
+):
+
+    sample, runmain, _ = get_run_parents(run_class, parameter_set)
+
+    read_classification = run_class.read_classification_drone.classification_report
+    map_targets = run_class.metadata_tool.remap_targets
+
+    for target in map_targets:
+
+        try:
+            screening_count = read_classification[
+                read_classification.acc == target.accid
+            ]
+
+            if len(screening_count) > 0:
+                screening_count = screening_count[
+                    screening_count.acc == target.accid
+                ].shape[0]
+            else:
+                screening_count = 0
+
+            compound_ref = RawReferenceCompoundModel.objects.get(
+                taxid=target.taxid,
+                accid=target.accid,
+                sample=sample,
+            )
+            compound_ref.screening_count = screening_count
+            compound_ref.save()
+
+        except RawReferenceCompoundModel.DoesNotExist:
+            pass
+
 
 @transaction.atomic
 def Update_Metagenomics(
@@ -379,15 +414,11 @@ def Update_RunMain(run_class: RunEngine_class, parameter_set: ParameterSet):
     :param run_class:
     :return: None
     """
-    user = User.objects.get(username=run_class.username)
+    user = run_class.owner
     project = Projects.objects.get(
         name=run_class.project_name, owner=user, is_deleted=False
     )
 
-    # sample = PIProject_Sample.objects.get(
-    #    name=run_class.sample.sample_name,
-    #    project=project,
-    # )
     sample = run_class.sample_registered
 
     reads_after_processing = run_class.sample.reads_after_processing
@@ -460,16 +491,9 @@ def Update_RunMain(run_class: RunEngine_class, parameter_set: ParameterSet):
     RegisterRunReads(runmain, run_class)
 
 
-def Sample_update_combinations(run_class: Type[RunEngine_class]):
-    user = User.objects.get(username=run_class.username)
-    project = Projects.objects.get(
-        name=run_class.project_name, owner=user, is_deleted=False
-    )
+def Sample_update_combinations(run_class: RunEngine_class):
+    user = run_class.owner
 
-    # sample = PIProject_Sample.objects.get(
-    #    project=project,
-    #    name=run_class.sample.sample_name,
-    # )
     sample = run_class.sample_registered
 
     sample.combinations = sample.combinations + 1
@@ -479,7 +503,7 @@ def Sample_update_combinations(run_class: Type[RunEngine_class]):
 
 def get_run_parents(run_class: RunEngine_class, parameter_set: ParameterSet) -> tuple:
     """get run parents for run_class. Update run_class.run_data."""
-    user = User.objects.get(username=run_class.username)
+    user = run_class.owner
     project = Projects.objects.get(
         name=run_class.project_name, owner=user, is_deleted=False
     )
@@ -507,62 +531,6 @@ def get_run_parents(run_class: RunEngine_class, parameter_set: ParameterSet) -> 
     return sample, runmain, project
 
 
-def Update_Metagenomics_Classification(
-    run_class: RunEngine_class, parameter_set: ParameterSet
-):
-
-    sample, runmain, _ = get_run_parents(run_class, parameter_set)
-
-    read_classification = run_class.read_classification_drone.classification_report
-    map_targets = run_class.metadata_tool.remap_targets
-
-    for target in map_targets:
-
-        try:
-            screening_count = read_classification[
-                read_classification.acc == target.accid
-            ]
-
-            if len(screening_count) > 0:
-                screening_count = screening_count[
-                    screening_count.acc == target.accid
-                ].shape[0]
-            else:
-                screening_count = 0
-
-            compound_ref = RawReferenceCompoundModel.objects.get(
-                taxid=target.taxid,
-                accid=target.accid,
-                sample=sample,
-            )
-            compound_ref.screening_count = screening_count
-            compound_ref.save()
-
-        except RawReferenceCompoundModel.DoesNotExist:
-            pass
-
-
-#
-# try:
-#    RawReference.objects.get(
-#        run=runmain,
-#        taxid=target.taxid,
-#        accid=target.accid,
-#    )
-# except RawReference.DoesNotExist:
-#
-#    remap_target = RawReference(
-#        run=runmain,
-#        taxid=target.taxid,
-#        accid=target.accid,
-#        status=RawReference.STATUS_MAPPED,
-#        description=summarize_description(target.description),
-#        counts=screening_count,
-#        classification_source="1",
-#    )
-#
-#    remap_target.save()
-#
 
 
 def Update_RunMain_noCheck(
@@ -714,8 +682,6 @@ def Update_Run_Detail_noCheck(run_class: RunEngine_class, parameter_set: Paramet
         return
 
     run_detail_exists = RunDetail.objects.filter(run=runmain, sample=sample).exists()
-    print("############ Update_Run_Detail_noCheck ############")
-    print(sample, runmain, run_detail_exists)
 
     if run_detail_exists:
         run_detail = RunDetail.objects.get(run=runmain, sample=sample)
@@ -954,6 +920,7 @@ def Update_Run_Classification(run_class: RunEngine_class, parameter_set: Paramet
     try:
         remap_main = RunRemapMain.objects.get(run=runmain, sample=sample)
         remap_main.merged_log = run_class.merged_classification_summary
+        remap_main.missing_log = run_class.raw_classification_missing_accids
         remap_main.remap_plan = run_class.remap_plan_path
         remap_main.performed = run_class.remap_main.performed
         remap_main.method = run_class.remap_main.method
@@ -968,6 +935,7 @@ def Update_Run_Classification(run_class: RunEngine_class, parameter_set: Paramet
             run=runmain,
             sample=sample,
             merged_log=run_class.merged_classification_summary,
+            missing_log = run_class.raw_classification_missing_accids,
             remap_plan=run_class.remap_plan_path,
             performed=run_class.remap_main.performed,
             method=run_class.remap_main.method,
@@ -1113,12 +1081,8 @@ def Update_FinalReport(run_class, runmain, sample):
 
 
 def Update_Targets(run_class: RunEngine_class, runmain):
-    print("UPDATING TARGETS")
-    print(len(run_class.metadata_tool.remap_targets))
-    print(runmain.pk)
-    for target in run_class.metadata_tool.remap_targets:
 
-        print(target.taxid, target.accid)
+    for target in run_class.metadata_tool.remap_targets:
 
         try:
             raw_reference = RawReference.objects.get(
@@ -1189,9 +1153,6 @@ def Update_ReferenceMap(
         taxid=ref_map.reference.target.taxid,
     )
 
-    print("remap_targets")
-    print(run.parameter_set.leaf.index)
-
     if remap_targets.exists():
         for target in remap_targets:
             target.status = RawReference.STATUS_MAPPED
@@ -1204,14 +1165,7 @@ def Update_ReferenceMap(
             run=run,
         )
 
-        print("ReferenceMap_Main exists")
     except ReferenceMap_Main.DoesNotExist:
-
-        print("Creating REFMAP_MAIN")
-        print(ref_map.reference.read_map_sorted_bam)
-        print(
-            ref_map.reference.mapped_subset_r1_fasta,
-        )
 
         if ref_map.mapping_success is not "none":
 
