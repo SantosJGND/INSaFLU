@@ -27,6 +27,7 @@ class database_item:
         self.name = name
         self.path = path
         self.installed = installed
+        self.db_category = "none"
         self.software = software
         self.date = datetime.datetime.now().strftime("%Y-%m-%d")
 
@@ -121,32 +122,45 @@ class Utility_Repository:
         self.software = Table(
             "software",
             self.metadata,
-            Column("name", String),
+            Column("name", String, primary_key=True),
             Column("path", String),
             Column("database", String),
             Column("installed", Boolean),
+            Column("tag", String, default="undefined"),
             Column("env_path", String),
             Column("date", String),
+            Column("db_version", String),
+            Column("needs_update", Boolean),
         )
 
         self.engine.execute(
-            "CREATE TABLE IF NOT EXISTS software (name TEXT, path TEXT, database TEXT, installed BOOLEAN, env_path TEXT, date TEXT)"
+            "CREATE TABLE IF NOT EXISTS software (name TEXT PRIMARY KEY, path TEXT, database TEXT, installed BOOLEAN, tag TEXT, env_path TEXT, date TEXT, db_version TEXT, needs_update BOOLEAN)"
         )
+
 
     def create_database_table(self):
         self.database = Table(
             "database",
             self.metadata,
+            Column("id", Integer, primary_key=True, autoincrement=True),
             Column("name", String),
+            Column("db_category", String),
+            Column("db_name", String),
+            Column("db_type", String),
             Column("path", String),
             Column("installed", Boolean),
             Column("software", String),
             Column("date", String),
+            Column("version", String),
+            Column("source_url", String),
+            Column("file_mod_date", String),
+            Column("description", String),
         )
 
         self.engine.execute(
-            "CREATE TABLE IF NOT EXISTS database (name TEXT, path TEXT, installed BOOLEAN, software TEXT, date TEXT)"
+            "CREATE TABLE IF NOT EXISTS database (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, db_category TEXT, db_name TEXT, db_type TEXT, path TEXT, installed BOOLEAN, software TEXT, date TEXT, version TEXT, source_url TEXT, file_mod_date TEXT, description TEXT)"
         )
+
 
     def delete_tables(self):
         self.delete_table("software")
