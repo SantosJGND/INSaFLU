@@ -22,6 +22,7 @@ from pathogen_identification.models import (FinalReport, ParameterSet,
 from pathogen_identification.modules.object_classes import Remap_Target
 from pathogen_identification.modules.remap_class import Mapping_Instance
 from pathogen_identification.modules.run_main import RunMainTree_class
+from pathogen_identification.televir_pipeline_makeup import Pipeline_Makeup
 from pathogen_identification.utilities.televir_parameters import \
     TelevirParameters
 from pathogen_identification.utilities.update_DBs_tree import (
@@ -33,7 +34,6 @@ from pathogen_identification.utilities.utilities_views import (
     ReportSorter, final_report_best_cov_by_accid)
 from settings.constants_settings import ConstantsSettings
 from utils.utils import Utils
-from pathogen_identification.televir_pipeline_makeup import Pipeline_Makeup
 
 
 def logger_copy(x, memo):
